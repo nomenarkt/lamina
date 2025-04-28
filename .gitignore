@@ -1,0 +1,23 @@
+# Binaries
+/server
+
+# Build outputs
+/build/
+
+# Dependency directories
+/vendor/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+
+# OS specific
+.DS_Store
+Thumbs.db
