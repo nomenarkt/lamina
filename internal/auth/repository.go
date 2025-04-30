@@ -29,3 +29,12 @@ func (r *AuthRepository) CreateUser(ctx context.Context, email, passwordHash str
     `, email, passwordHash).Scan(&id)
 	return id, err
 }
+
+func (r *AuthRepository) IsEmailExists(email string) (bool, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM users WHERE email=$1", email).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

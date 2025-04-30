@@ -2,7 +2,7 @@ version: '3'
 services:
   app:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile
     ports:
       - "8080:8080"
@@ -11,6 +11,11 @@ services:
     depends_on:
       - db
     restart: always
+    environment:
+      - PORT=${PORT}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+
 
   db:
     image: postgres:16
@@ -19,7 +24,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: saasdb
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

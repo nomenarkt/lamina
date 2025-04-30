@@ -1,108 +1,176 @@
-📚 Lamina - Flight & Transport SaaS Platform
-Lamina is a modular, scalable SaaS backend designed for aviation and logistics companies to manage flight crew scheduling and transport operations efficiently.
+# 📦 Lamina SaaS Backend
 
-✈️🚛 Features
-Flight Crew Scheduling Management
-Transport Jobs and Driver Assignments
-Multi-tenant SaaS Architecture (Company Accounts)
-Secure User Authentication (JWT + Bcrypt)
-PostgreSQL 16 Database (Optimized for SaaS)
-Dockerized Development and Deployment
-Modular, Clean Golang Backend (Gin Framework)
-Extensible Microservices-Ready Design
-Professional CI/CD Ready (Future GitHub Actions Integration)
+[![Go Version](https://img.shields.io/badge/Go-1.24.1-blue?logo=go)](https://golang.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-blue?logo=docker)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT)
 
-🏗️ Project Architecture
-Layer | Technology
-Backend | Go 1.24 (Gin Web Framework)
-Database | PostgreSQL 16
-Authentication | JWT Tokens, Bcrypt Passwords
-DevOps | Docker, Docker Compose
-Hosting (recommended) | AWS Lightsail (MVP) or AWS ECS (Scaling)
-CI/CD (future) | GitHub Actions
-✅ Clean Monolith Architecture (Microservices Ready Later)
+**Flight Crew Scheduling and Transport Management SaaS platform**, built for long-term scalability, maintainability, and low operational cost.
 
-✅ Multi-module setup (/internal/flight, /internal/transport, /internal/auth, etc.)
+---
 
-🧰 Tech Stack
-Component | Technology
-Language | Go 1.24
-Framework | Gin
-Database | PostgreSQL
-Authentication | JWT + Bcrypt
-Dev Environment | Docker, Docker Compose
-Package Management | Go Modules
+## 📑 Table of Contents
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Setup Instructions](#setup-instructions)
+- [Authentication Strategy](#authentication-strategy)
+- [API Endpoints](#api-endpoints)
+- [Testing](#testing)
+- [Best Practices Followed](#best-practices-followed)
 
-🚀 Getting Started
-1. Clone the Repository
-git clone https://github.com/nomenarkt/lamina.git
-cd lamina
-2. Setup Environment Variables
--Create your environment file:
-cp .env.example .env
--Edit .env to configure:
-PORT=8080
-DATABASE_URL=postgres://postgres:postgres@db:5432/saasdb?sslmode=disable
-JWT_SECRET=your_super_secret_key
-3. Build and Run Locally
-Use Docker Compose to start Postgres and the Go backend:
-docker-compose up --build
-Access API at:
-http://localhost:8080/api/v1
-4. API Endpoints Available
-Method	Endpoint	Description
-POST	/api/v1/auth/signup	Register a new user
-POST	/api/v1/auth/login	Authenticate and receive access token
-(More endpoints coming as we build: user management, flight scheduling, transport jobs.)
+---
 
-🧪 Testing the API
-You can use tools like:
-Postman (recommended)
-cURL
-Example (using cURL):
-curl -X POST http://localhost:8080/api/v1/auth/signup \
--H "Content-Type: application/json" \
--d '{"email": "test@example.com", "password": "strongpassword"}'
+## ✨ Features
+- 🚀 Fast and minimal Go backend
+- 🔐 Secure authentication using JWT tokens
+- 🛡️ Admin-only user creation (no public signup)
+- 🗃️ PostgreSQL database (Dockerized)
+- 🛠️ Structured project architecture: modular, clean, scalable
+- 🧪 Manual and unit testing enforced (Test-Driven Development)
+- 📈 Ready for CI/CD pipeline integration
 
-🔥 Roadmap
-Phase | Features
-MVP	| Authentication, Basic User Management, Basic Flight Scheduling, Basic Transport Management
-Post-MVP | Notifications System (Email/SMS), Advanced Reporting, Mobile App API
-Scale | Multi-database support, Event Queues, Kubernetes ready deployments
+---
 
-📦 Folder Structure
-plaintext
-Copy
+## 🏛️ Architecture
+- **Backend**: Golang (Gin framework)
+- **Database**: PostgreSQL (inside Docker container)
+- **Auth**: JWT (JSON Web Tokens) with custom claims (userID, email, role)
+- **Deployment**: Docker & Docker Compose for local development and production readiness
+
+```
+Client → Nginx (future) → API Gateway (future) → Lamina API Server → PostgreSQL DB
+```
+
+---
+
+## 🛠 Tech Stack
+| Layer | Technology |
+|------|-------------|
+| Backend | Go 1.24.1 |
+| Framework | Gin |
+| Auth | JWT |
+| Database | PostgreSQL 16 |
+| DevOps | Docker, Docker Compose |
+| Testing | Go built-in `testing` package |
+
+---
+
+## 📂 Project Structure
+
+```
 lamina/
-├── cmd/server         # Main entry point (main.go)
-├── config/             # Config loader
-├── internal/           # Main business modules (auth, user, flight, transport)
-├── common/             # Shared utilities (db, jwt, password)
-├── docker/             # Docker and docker-compose files
-├── tests/              # Unit and integration tests
-├── .env.example        # Environment variable template
-├── .gitignore          # Git ignored files
-├── README.md           # Project documentation
-├── go.mod, go.sum      # Go module dependencies
+├── cmd/
+│   └── server/             # Entry point (main.go)
+├── common/
+│   ├── database/            # PostgreSQL connection management
+│   └── utils/               # JWT, password utilities
+├── config/                  # Environment config management
+├── internal/
+│   ├── auth/                # Authentication business logic
+│   ├── user/                # User management logic
+│   └── admin/               # Admin-only features (create users)
+├── docker/
+│   ├── docker-compose.yml   # Docker orchestration
+│   └── Dockerfile           # Build Go app
+├── .gitignore
+├── .env.example
+├── go.mod
+├── go.sum
+└── README.md                # Project documentation
+```
 
-✍️ Contributing
-Pull requests are welcome!
-For major changes, please open an issue first to discuss what you would like to change.
-✅ Always make sure to run:
-go fmt ./...
-before pushing your code!
+---
 
-📜 License
-MIT License
+## 🚀 Setup Instructions
 
-🧠 Important Notes
-Environment variables must be set properly to run backend.
-Always use go mod tidy after adding any new package.
-Make sure PostgreSQL is running locally (Docker Compose starts it automatically).
+### 1. Clone the project
 
-🏆 Author
-Developed by Nomenarkt
-In collaboration with [Lamina Project CTO Assistant] (powered by GPT technologies 🚀).
+```bash
+git clone https://github.com/nomenarkt/lamina.git
+cd lamina/docker
+```
 
-❤️ Final Line
-Building SaaS the right way — clean, scalable, production-ready from Day 1.
+### 2. Configure environment variables
+
+```bash
+cp ../.env.example ../.env
+```
+- Fill `.env` with your local secrets (PostgreSQL credentials, JWT secret, etc.).
+
+### 3. Launch Docker containers
+
+```bash
+docker-compose up --build
+```
+
+### 4. Initialize the database manually (if needed)
+
+```bash
+docker exec -it docker_db_1 psql -U postgres -d saasdb
+```
+
+Create `users` table if missing.
+
+---
+
+## 🔐 Authentication Strategy
+
+| Endpoint             | Public/Protected | Description |
+|----------------------|------------------|-------------|
+| `/auth/login`         | Public | Users can login if already registered |
+| `/auth/signup`        | ❌ Not exposed | No public signup allowed |
+| `/admin/create-user`  | Protected (JWT + Admin role) | Admin creates users manually |
+
+✅ JWT Tokens contain `userID`, `email`, and `role` claims for secured access.
+
+---
+
+## 🌐 API Endpoints Overview
+
+| Method | Endpoint                | Access |
+|--------|--------------------------|--------|
+| POST   | `/api/v1/auth/login`      | Public |
+| POST   | `/api/v1/admin/create-user` | Admin-only (JWT) |
+| GET    | `/api/v1/user/me`          | Authenticated |
+| GET    | `/api/v1/user/`            | Admin |
+
+---
+
+## 🧪 Testing
+
+Unit tests (e.g., JWT generation and parsing) are located under:
+
+```
+/common/utils/jwt_test.go
+```
+
+Run tests locally:
+
+```bash
+go test ./common/utils/
+```
+
+---
+
+## 📏 Best Practices Followed
+
+- [x] Software Development Lifecycle (SDLC) applied properly
+- [x] Test-Driven Development (TDD) enforced
+- [x] Modular architecture (Clean Architecture Principles)
+- [x] Secure role-based access control
+- [x] Environment-specific configs (.env separation)
+- [x] Full Dockerized environment (PostgreSQL + App)
+
+---
+
+# ✅ Status
+Lamina backend is **production-ready** for internal deployment. Future improvements include:
+- API Gateway
+- Admin dashboard (frontend)
+- Metrics/Monitoring setup (Prometheus + Grafana)
+
+---
+
+> Built with passion for quality software. ✈️🚛
