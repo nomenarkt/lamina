@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nomenarkt/lamina/common/utils"
@@ -34,6 +35,9 @@ func NewAuthService(r AuthRepoInterface) *AuthService {
 
 func (s *AuthService) SignupUser(ctx context.Context, req SignupRequest) (AuthResponse, error) {
 	exists, err := s.repo.IsEmailExists(req.Email)
+	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
+		return AuthResponse{}, errors.New("only @madagascarairlines.com emails are allowed")
+	}
 	if err != nil {
 		return AuthResponse{}, errors.New("failed to check user existence")
 	}

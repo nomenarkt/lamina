@@ -103,8 +103,10 @@ func TestLogin_UserNotFound(t *testing.T) {
 
 func TestSignupUser_Success(t *testing.T) {
 	repo := new(MockAuthRepo)
-	repo.On("IsEmailExists", "new@example.com").Return(false, nil)
-	repo.On("CreateUser", mock.Anything, "new@example.com", "hashed123").Return(int64(42), nil)
+	email := "user@madagascarairlines.com"
+
+	repo.On("IsEmailExists", email).Return(false, nil)
+	repo.On("CreateUser", mock.Anything, email, "hashed123").Return(int64(42), nil)
 
 	service := &AuthService{
 		repo: repo,
@@ -117,7 +119,7 @@ func TestSignupUser_Success(t *testing.T) {
 	}
 
 	resp, err := service.SignupUser(context.Background(), SignupRequest{
-		Email:    "new@example.com",
+		Email:    email,
 		Password: "mypassword",
 	})
 
@@ -128,7 +130,9 @@ func TestSignupUser_Success(t *testing.T) {
 
 func TestSignupUser_EmailExists(t *testing.T) {
 	repo := new(MockAuthRepo)
-	repo.On("IsEmailExists", "existing@example.com").Return(true, nil)
+	email := "user@madagascarairlines.com"
+
+	repo.On("IsEmailExists", email).Return(true, nil)
 
 	service := &AuthService{
 		repo: repo,
@@ -141,7 +145,7 @@ func TestSignupUser_EmailExists(t *testing.T) {
 	}
 
 	_, err := service.SignupUser(context.Background(), SignupRequest{
-		Email:    "existing@example.com",
+		Email:    email,
 		Password: "irrelevant",
 	})
 
@@ -151,7 +155,8 @@ func TestSignupUser_EmailExists(t *testing.T) {
 
 func TestSignupUser_HashFailure(t *testing.T) {
 	repo := new(MockAuthRepo)
-	repo.On("IsEmailExists", "fail@example.com").Return(false, nil)
+	email := "user@madagascarairlines.com"
+	repo.On("IsEmailExists", email).Return(false, nil)
 
 	service := &AuthService{
 		repo: repo,
@@ -164,7 +169,7 @@ func TestSignupUser_HashFailure(t *testing.T) {
 	}
 
 	_, err := service.SignupUser(context.Background(), SignupRequest{
-		Email:    "fail@example.com",
+		Email:    email,
 		Password: "bad",
 	})
 
@@ -174,8 +179,9 @@ func TestSignupUser_HashFailure(t *testing.T) {
 
 func TestSignupUser_TokenFailure(t *testing.T) {
 	repo := new(MockAuthRepo)
-	repo.On("IsEmailExists", "tokenfail@example.com").Return(false, nil)
-	repo.On("CreateUser", mock.Anything, "tokenfail@example.com", "hashedok").Return(int64(99), nil)
+	email := "user@madagascarairlines.com"
+	repo.On("IsEmailExists", email).Return(false, nil)
+	repo.On("CreateUser", mock.Anything, email, "hashedok").Return(int64(99), nil)
 
 	service := &AuthService{
 		repo: repo,
@@ -188,10 +194,35 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	}
 
 	_, err := service.SignupUser(context.Background(), SignupRequest{
-		Email:    "tokenfail@example.com",
+		Email:    email,
 		Password: "good",
 	})
 
 	assert.Error(t, err)
 	assert.Equal(t, "failed to generate tokens", err.Error())
+}
+
+func TestSignupUser_InvalidDomain(t *testing.T) {
+	repo := new(MockAuthRepo)
+	email := "intruder@notallowed.com"
+
+	repo.On("IsEmailExists", email).Return(false, nil)
+
+	service := &AuthService{
+		repo: repo,
+		hashPassword: func(p string) (string, error) {
+			return "irrelevant", nil
+		},
+		generateTokens: func(id int64, email, role string) (string, string, error) {
+			return "", "", nil
+		},
+	}
+
+	_, err := service.SignupUser(context.Background(), SignupRequest{
+		Email:    email,
+		Password: "shouldfail",
+	})
+
+	assert.Error(t, err)
+	assert.Equal(t, "only @madagascarairlines.com emails are allowed", err.Error())
 }

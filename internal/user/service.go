@@ -4,11 +4,16 @@ import (
 	"context"
 )
 
-type UserService struct {
-	repo *UserRepository
+type UserRepo interface {
+	FindByID(ctx context.Context, id int64) (User, error)
+	FindAll(ctx context.Context) ([]User, error)
 }
 
-func NewUserService(r *UserRepository) *UserService {
+type UserService struct {
+	repo UserRepo
+}
+
+func NewUserService(r UserRepo) *UserService {
 	return &UserService{repo: r}
 }
 
@@ -18,4 +23,8 @@ func (s *UserService) GetProfile(ctx context.Context, userID int64) (User, error
 
 func (s *UserService) ListUsers(ctx context.Context) ([]User, error) {
 	return s.repo.FindAll(ctx)
+}
+
+func (s *UserService) GetMe(ctx context.Context, userID int64) (User, error) {
+	return s.repo.FindByID(ctx, userID)
 }
