@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 
@@ -13,8 +14,22 @@ type MockUserRepo struct {
 	mock.Mock
 }
 
+func (m *MockUserRepo) IsAdmin(ctx context.Context, userID int64) (bool, error) {
+	args := m.Called(ctx, userID)
+	return args.Bool(0), args.Error(1)
+}
+
 func (m *MockUserRepo) FindByID(ctx context.Context, id int64) (*User, error) {
 	args := m.Called(id)
+	user := args.Get(0).(User)
+	return &user, args.Error(1)
+}
+
+func (m *MockUserRepo) FindByEmail(ctx context.Context, email string) (*User, error) {
+	args := m.Called(email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	user := args.Get(0).(User)
 	return &user, args.Error(1)
 }
@@ -73,4 +88,27 @@ func TestFindAll_NoUsers(t *testing.T) {
 	users, err := service.FindAll(context.Background())
 	assert.NoError(t, err)
 	assert.Empty(t, users)
+}
+
+func TestFindByEmail_Success(t *testing.T) {
+	repo := new(MockUserRepo)
+	service := NewUserService(repo)
+
+	expectedUser := User{ID: 3190, Email: "user@madagascarairlines.com"}
+	repo.On("FindByEmail", "user@madagascarairlines.com").Return(expectedUser, nil)
+
+	user, err := service.FindByEmail(context.Background(), "user@madagascarairlines.com")
+	assert.NoError(t, err)
+	assert.Equal(t, &expectedUser, user)
+}
+
+func TestFindByEmail_NotFound(t *testing.T) {
+	repo := new(MockUserRepo)
+	service := NewUserService(repo)
+
+	repo.On("FindByEmail", "missing@domain.com").Return(nil, sql.ErrNoRows)
+
+	user, err := service.FindByEmail(context.Background(), "missing@domain.com")
+	assert.Error(t, err)
+	assert.Nil(t, user)
 }

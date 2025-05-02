@@ -31,3 +31,7 @@ func (s *UserService) FindAll(ctx context.Context) ([]User, error) {
 func (s *UserService) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	return s.repo.IsAdmin(ctx, userID)
 }
+
+func (s *UserService) FindByEmail(ctx context.Context, email string) (*User, error) {
+	return s.repo.FindByEmail(ctx, email)
+}
