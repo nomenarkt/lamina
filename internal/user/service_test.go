@@ -9,18 +9,18 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockUserRepo implements UserRepository interface for testing
 type MockUserRepo struct {
 	mock.Mock
 }
 
-func (m *MockUserRepo) FindByID(ctx context.Context, id int64) (User, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(User), args.Error(1)
+func (m *MockUserRepo) FindByID(ctx context.Context, id int64) (*User, error) {
+	args := m.Called(id)
+	user := args.Get(0).(User)
+	return &user, args.Error(1)
 }
 
 func (m *MockUserRepo) FindAll(ctx context.Context) ([]User, error) {
-	args := m.Called(ctx)
+	args := m.Called()
 	return args.Get(0).([]User), args.Error(1)
 }
 
@@ -28,25 +28,49 @@ func TestGetMe_Success(t *testing.T) {
 	repo := new(MockUserRepo)
 	service := NewUserService(repo)
 
-	expectedUser := User{ID: 1, Email: "me@example.com", Role: "user"}
-	repo.On("FindByID", mock.Anything, int64(1)).Return(expectedUser, nil)
+	expectedUser := User{ID: 3190, Email: "user@madagascarairlines.com"}
+	repo.On("FindByID", int64(3190)).Return(expectedUser, nil)
 
-	user, err := service.GetMe(context.Background(), 1)
-
+	user, err := service.GetMe(context.Background(), 3190)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedUser.Email, user.Email)
-	assert.Equal(t, expectedUser.ID, user.ID)
-	assert.Equal(t, expectedUser.Role, user.Role)
+	assert.Equal(t, user, &expectedUser)
 }
 
-func TestGetMe_UserNotFound(t *testing.T) {
+func TestGetMe_InvalidID(t *testing.T) {
 	repo := new(MockUserRepo)
 	service := NewUserService(repo)
 
-	repo.On("FindByID", mock.Anything, int64(42)).Return(User{}, errors.New("not found"))
+	repo.On("FindByID", int64(0)).Return(User{}, errors.New("user not found"))
 
-	_, err := service.GetMe(context.Background(), 42)
-
+	_, err := service.GetMe(context.Background(), 0)
 	assert.Error(t, err)
-	assert.Equal(t, "not found", err.Error())
+	assert.Equal(t, "user not found", err.Error())
+}
+
+func TestFindAll_UsersExist(t *testing.T) {
+	repo := new(MockUserRepo)
+	service := NewUserService(repo)
+
+	mockUsers := []User{
+		{ID: 3190, Email: "first@madagascarairlines.com"},
+		{ID: 3191, Email: "second@madagascarairlines.com"},
+	}
+
+	repo.On("FindAll").Return(mockUsers, nil)
+
+	users, err := service.FindAll(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, users, 2)
+	assert.Equal(t, "first@madagascarairlines.com", users[0].Email)
+}
+
+func TestFindAll_NoUsers(t *testing.T) {
+	repo := new(MockUserRepo)
+	service := NewUserService(repo)
+
+	repo.On("FindAll").Return([]User{}, nil)
+
+	users, err := service.FindAll(context.Background())
+	assert.NoError(t, err)
+	assert.Empty(t, users)
 }

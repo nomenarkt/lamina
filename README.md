@@ -11,6 +11,7 @@ Lamina is a modern SaaS platform scaffolded in Go, using clean architecture prin
 - TDD-first development (Go + Testify)
 - Dockerized with PostgreSQL
 - Modular architecture with clearly separated layers
+- Safe, automated schema migrations via Golang Migrate
 
 ## 📦 Tech Stack
 
@@ -61,12 +62,17 @@ docker-compose exec app go test ./... -v
 - Docker + Docker Compose
 - Go 1.20+
 
-### Run app locally:
+### Run full environment:
 ```bash
-docker-compose up --build
+docker-compose down -v
+docker-compose build --no-cache
+docker-compose up migrate
+docker-compose up app
 ```
 
 - App available at: `http://localhost:8080`
+- Database initialized with migrations via `golang-migrate`
+- Admin user seeded via SQL migration (see `002_seed_admin_user.up.sql`)
 
 ---
 
@@ -79,6 +85,7 @@ docker-compose up --build
 ├── internal/user          # User logic (in progress)
 ├── internal/admin         # Admin endpoints
 ├── common/utils           # JWT, hashing, helpers
+├── migrations/            # SQL migration files (auto-run)
 ├── docker/                # Dockerfile and compose config
 ├── README.md
 └── go.mod
@@ -90,6 +97,7 @@ docker-compose up --build
 
 - Do not commit `.env` files — these are excluded by `.gitignore`
 - Tokens use `HMAC` signing (default). Rotate keys regularly.
+- Admin account seeded via migrations, **credentials should be rotated post-deploy**
 
 ---
 

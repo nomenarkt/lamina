@@ -18,7 +18,7 @@ func NewAuthRepository(db *sqlx.DB) *AuthRepository {
 
 func (r *AuthRepository) FindByEmail(ctx context.Context, email string) (user.User, error) {
 	var u user.User
-	err := r.db.GetContext(ctx, &u, "SELECT id, email, password_hash FROM users WHERE email=$1", email)
+	err := r.db.GetContext(ctx, &u, "SELECT id, email, password_hash, role FROM users WHERE email=$1", email)
 	return u, err
 }
 

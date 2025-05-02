@@ -15,6 +15,21 @@ services:
       - PORT=${PORT}
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
+  migrate:
+    image: migrate/migrate
+    container_name: db_migrator
+    depends_on:
+      - db
+    volumes:
+      - ../migrations:/migrations
+      - ../wait-for-it.sh:/wait-for-it.sh
+    entrypoint: ["/wait-for-it.sh", "db:5432", "--"]
+    command: [
+      "migrate",
+      "-path", "/migrations",
+      "-database", "postgres://postgres:postgres@db:5432/lamina_dev?sslmode=disable",
+      "up"
+    ]
 
 
   db:

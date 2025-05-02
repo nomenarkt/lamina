@@ -95,7 +95,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (AuthResponse
 		return AuthResponse{}, errors.New("invalid email or password")
 	}
 
-	access, refresh, err := s.generateTokens(user.ID, user.Email, "user")
+	access, refresh, err := s.generateTokens(user.ID, user.Email, user.Role) // ← use user.Role here
 	if err != nil {
 		return AuthResponse{}, err
 	}

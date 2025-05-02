@@ -28,3 +28,11 @@ pgdata/
 .DS_Store
 Thumbs.db
 
+# Dev & temp
+*.log
+*.tmp
+*.bak
+test-*.go
+
+# Tools
+wait-for-it.sh
