@@ -34,5 +34,3 @@ Thumbs.db
 *.bak
 test-*.go
 
-# Tools
-wait-for-it.sh
