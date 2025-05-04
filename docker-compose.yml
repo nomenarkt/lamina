@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lamina_dev
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    command: ["./wait-for-it.sh", "db:5432", "--", "./server"]
+    volumes:
+      - ./wait-for-it.sh:/wait-for-it.sh
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8080}:8080"
+    depends_on:
+      - db
+    restart: always
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/migrate.Dockerfile
+    entrypoint: ["/wait-for-it.sh", "db:5432", "--", "migrate", "-path", "/app/migrations", "-database", "postgres://postgres:postgres@db:5432/lamina_dev?sslmode=disable", "up"]
+    volumes:
+      - ./migrations:/app/migrations
+      - ./wait-for-it.sh:/wait-for-it.sh
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
