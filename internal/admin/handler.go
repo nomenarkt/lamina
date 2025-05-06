@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -36,11 +38,24 @@ func RegisterRoutes(r *gin.RouterGroup, db *sqlx.DB) {
 			return
 		}
 
-		if err := adminService.CreateUser(c.Request.Context(), req, claims.Email); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// Log the request for debugging
+		log.Printf("Received request to create user: %+v", req)
+
+		err := adminService.CreateUser(c.Request.Context(), req, claims.Email)
+		if err != nil {
+			// Log unhandled error and return generic message
+			log.Printf("CreateUser failed: %v", err)
+			// Check for duplicate email violation (PostgreSQL)
+			if strings.Contains(err.Error(), "duplicate key value") && strings.Contains(err.Error(), "users_email_key") {
+				c.JSON(http.StatusConflict, gin.H{"error": "email already exists"})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"message": "user successfully created"})
 	})
+
 }

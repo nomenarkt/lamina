@@ -45,6 +45,9 @@ func JWTMiddleware() gin.HandlerFunc {
 		// Inject into context
 		c.Set("userID", claims.UserID)
 		c.Set("role", claims.Role)
+		c.Set("email", claims.Email) // ✅ Needed for adminService
+		c.Set("user", claims)        // ✅ Full claims struct (optional)
+
 		c.Next()
 	}
 }

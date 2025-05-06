@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -13,6 +14,8 @@ import (
 )
 
 func main() {
+	fmt.Println("JWT_SECRET (startup):", os.Getenv("JWT_SECRET"))
+
 	config.LoadEnv()
 
 	db := database.ConnectDB()

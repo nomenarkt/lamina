@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,7 +44,23 @@ func GenerateTokens(userID int64, email string, role string) (string, string, er
 }
 
 // ✅ NEW: ParseToken to validate and extract Claims from JWT
+// JWT Token Parsing Logic
+// -----------------------
+// The "Missing HMAC secret" error occurs when the server attempts to parse a JWT
+// but cannot find the JWT_SECRET environment variable.
+//
+// This is *not* related to client-side HMAC signatures or missing request headers.
+//
+// ✅ To fix this error:
+// 1. Set JWT_SECRET in your .env file or server environment.
+// 2. Make sure Docker or your deployment environment passes it at runtime.
+// 3. Avoid Docker layer caching issues that skip source recompilation.
+//
+// This error comes from jwt.ParseWithClaims when given an empty signing key.
+
 func ParseToken(tokenString string) (*Claims, error) {
+	fmt.Println("JWT_SECRET (runtime):", os.Getenv("JWT_SECRET"))
+
 	secret := os.Getenv("JWT_SECRET")
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
@@ -59,7 +77,14 @@ func ParseToken(tokenString string) (*Claims, error) {
 // ✅ NEW: Middleware to check auth and inject user info into Gin Context
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.GetHeader("Authorization")
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(401, gin.H{"error": "Missing or invalid Authorization header"})
+			c.Abort()
+			return
+		}
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
 		if tokenString == "" {
 			c.JSON(401, gin.H{"error": "Missing token"})
 			c.Abort()

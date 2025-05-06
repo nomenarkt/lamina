@@ -1,34 +1,38 @@
-# Makefile — root of project
+SHELL := /bin/bash
+.DEFAULT_GOAL := dev-up
 
-DOCKER_COMPOSE := docker-compose
+ENV_FILE := .env
 
-# 🧼 Cleanup and rebuild from scratch
-dev-up:
-	$(DOCKER_COMPOSE) down -v --remove-orphans
-	chmod +x wait-for-it.sh
-	$(DOCKER_COMPOSE) build --no-cache
-	$(DOCKER_COMPOSE) up app
+# Load env vars if .env exists
+ifneq ("$(wildcard $(ENV_FILE))","")
+	include $(ENV_FILE)
+	export
+endif
 
-# 🔁 Rebuild without stopping volumes
-rebuild:
-	$(DOCKER_COMPOSE) build --no-cache
+.PHONY: down rebuild migrate dev-up
 
-# 🚀 Run only the app container
-app:
-	$(DOCKER_COMPOSE) up app
-
-# 🧪 Run database migration
-migrate:
-	$(DOCKER_COMPOSE) run --rm migrate
-
-# 🧹 Stop and clean everything
+## Stop and clean up all containers and volumes
 down:
-	$(DOCKER_COMPOSE) down -v --remove-orphans
+	@echo "==> Shutting down and removing all containers, networks, and volumes..."
+	docker-compose down -v --remove-orphans
 
-# 🐳 Show running containers
-ps:
-	$(DOCKER_COMPOSE) ps
+## Rebuild all images from scratch
+rebuild:
+	@echo "==> Building images from scratch..."
+	docker-compose build --no-cache
 
-# 🧭 See logs
-logs:
-	$(DOCKER_COMPOSE) logs -f app
+## Run database migrations via the docker-compose-defined migrate service
+migrate:
+	@echo "==> Running migrations..."
+	docker-compose up migrate
+
+## Start up DB, run migrations, then launch the app
+dev-up: down rebuild
+	@echo "==> Starting database..."
+	docker-compose up -d db
+	@echo "==> Waiting for DB to be ready..."
+	sleep 5
+	@$(MAKE) migrate
+	@echo "==> Starting app..."
+	docker-compose up app
+
