@@ -13,7 +13,7 @@ import (
 
 type AuthRepoInterface interface {
 	IsEmailExists(email string) (bool, error)
-	CreateUser(ctx context.Context, email string, hash string) (int64, error)
+	CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error)
 	FindByEmail(ctx context.Context, email string) (user.User, error)
 }
 
@@ -34,10 +34,11 @@ func NewAuthService(r AuthRepoInterface) *AuthService {
 }
 
 func (s *AuthService) SignupUser(ctx context.Context, req SignupRequest) (AuthResponse, error) {
-	exists, err := s.repo.IsEmailExists(req.Email)
 	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
 		return AuthResponse{}, errors.New("only @madagascarairlines.com emails are allowed")
 	}
+
+	exists, err := s.repo.IsEmailExists(req.Email)
 	if err != nil {
 		return AuthResponse{}, errors.New("failed to check user existence")
 	}
@@ -50,7 +51,7 @@ func (s *AuthService) SignupUser(ctx context.Context, req SignupRequest) (AuthRe
 		return AuthResponse{}, errors.New("failed to hash password")
 	}
 
-	userID, err := s.repo.CreateUser(ctx, req.Email, hashedPassword)
+	userID, err := s.repo.CreateUser(ctx, req.CompanyID, req.Email, hashedPassword)
 	if err != nil {
 		return AuthResponse{}, errors.New("failed to create user")
 	}

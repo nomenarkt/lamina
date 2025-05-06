@@ -22,11 +22,13 @@ func (r *AuthRepository) FindByEmail(ctx context.Context, email string) (user.Us
 	return u, err
 }
 
-func (r *AuthRepository) CreateUser(ctx context.Context, email, passwordHash string) (int64, error) {
+func (r *AuthRepository) CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error) {
 	var id int64
 	err := r.db.QueryRowxContext(ctx, `
-        INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id
-    `, email, passwordHash).Scan(&id)
+		INSERT INTO users (company_id, email, password_hash, role, status, created_at)
+		VALUES ($1, $2, $3, 'user', 'pending', CURRENT_TIMESTAMP)
+		RETURNING id
+	`, companyID, email, hash).Scan(&id)
 	return id, err
 }
 

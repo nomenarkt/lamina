@@ -26,9 +26,9 @@ func JWTMiddleware() gin.HandlerFunc {
 		}
 
 		tokenString := strings.TrimPrefix(header, "Bearer ")
-		secret := os.Getenv("HMAC_SECRET")
+		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Missing HMAC secret"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Missing JWT secret"})
 			return
 		}
 

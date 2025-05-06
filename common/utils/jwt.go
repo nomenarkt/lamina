@@ -21,6 +21,9 @@ type Claims struct {
 // ✅ Function to generate Access and Refresh Tokens
 func GenerateTokens(userID int64, email string, role string) (string, string, error) {
 	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "", "", fmt.Errorf("JWT_SECRET is not set in the environment")
+	}
 
 	claims := Claims{
 		UserID: userID,
@@ -62,6 +65,9 @@ func ParseToken(tokenString string) (*Claims, error) {
 	fmt.Println("JWT_SECRET (runtime):", os.Getenv("JWT_SECRET"))
 
 	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return nil, fmt.Errorf("JWT_SECRET is not set in the environment")
+	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil

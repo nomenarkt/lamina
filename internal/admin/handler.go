@@ -9,7 +9,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nomenarkt/lamina/common/utils"
 	"github.com/nomenarkt/lamina/internal/middleware"
-	"github.com/nomenarkt/lamina/internal/user"
 )
 
 func RegisterRoutes(r *gin.RouterGroup, db *sqlx.DB) {
@@ -26,7 +25,7 @@ func RegisterRoutes(r *gin.RouterGroup, db *sqlx.DB) {
 			return
 		}
 
-		claims, ok := claimsVal.(*user.UserClaims)
+		claims, ok := claimsVal.(*middleware.CustomClaims)
 		if !ok || claims == nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user claims"})
 			return

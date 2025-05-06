@@ -1,11 +1,15 @@
 package user
 
+import "time"
+
 type User struct {
-	ID           int64  `db:"id"`
-	Email        string `db:"email"`
-	PasswordHash string `db:"password_hash"`
-	Role         string `json:"role"`
-	CreatedAt    string `db:"created_at"`
+	ID           int64     `db:"id"`
+	CompanyID    int       `db:"company_id"`
+	Email        string    `db:"email"`
+	PasswordHash string    `db:"password_hash"`
+	Role         string    `db:"role"`
+	Status       string    `db:"status"`
+	CreatedAt    time.Time `db:"created_at"`
 }
 
 type UserClaims struct {

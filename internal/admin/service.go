@@ -2,8 +2,10 @@ package admin
 
 import (
 	"context"
+	"time"
 
 	"github.com/nomenarkt/lamina/common/utils"
+	"github.com/nomenarkt/lamina/internal/user"
 )
 
 type AdminService struct {
@@ -24,5 +26,14 @@ func (s *AdminService) CreateUser(ctx context.Context, req CreateUserRequest, cr
 		return err
 	}
 
-	return s.repo.CreateUser(ctx, req.Email, hashedPassword, req.Role)
+	newUser := &user.User{
+		CompanyID:    req.CompanyID,
+		Email:        req.Email,
+		PasswordHash: hashedPassword,
+		Role:         req.Role,
+		Status:       "active", // optional, depends on schema
+		CreatedAt:    time.Now(),
+	}
+
+	return s.repo.CreateUser(ctx, newUser)
 }
