@@ -14,7 +14,7 @@ import (
 )
 
 func setupRouter() *gin.Engine {
-	os.Setenv("HMAC_SECRET", "mytestsecret")
+	os.Setenv("JWT_SECRET", "mytestsecret")
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
@@ -34,6 +34,8 @@ func TestCreateUser_Unauthorized(t *testing.T) {
 }
 
 func TestCreateUser_ForbiddenForViewer(t *testing.T) {
+	os.Setenv("JWT_SECRET", "mytestsecret")
+
 	router := setupRouter()
 	token, _ := middleware.GenerateJWT("mytestsecret", 1234, "viewer@madagascarairlines.com", "viewer")
 

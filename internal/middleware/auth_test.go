@@ -30,7 +30,7 @@ func generateToken(secret string, userID int64, role string) string {
 }
 
 func TestJWTMiddleware_Success(t *testing.T) {
-	os.Setenv("HMAC_SECRET", "mytestsecret")
+	os.Setenv("JWT_SECRET", "mytestsecret")
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
@@ -65,7 +65,7 @@ func TestJWTMiddleware_MissingHeader(t *testing.T) {
 }
 
 func TestJWTMiddleware_InvalidToken(t *testing.T) {
-	os.Setenv("HMAC_SECRET", "mytestsecret")
+	os.Setenv("JWT_SECRET", "mytestsecret")
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()

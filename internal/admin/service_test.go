@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/nomenarkt/lamina/internal/user"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -13,8 +14,8 @@ type MockAdminRepo struct {
 	mock.Mock
 }
 
-func (m *MockAdminRepo) CreateUser(ctx context.Context, email, hashedPassword, role string) error {
-	args := m.Called(ctx, email, hashedPassword, role)
+func (m *MockAdminRepo) CreateUser(ctx context.Context, u *user.User) error {
+	args := m.Called(ctx, u)
 	return args.Error(0)
 }
 
@@ -41,7 +42,9 @@ func TestCreateUser_Success(t *testing.T) {
 	hashedPassword := "hashedpassword"
 
 	hasher.On("HashPassword", req.Password).Return(hashedPassword, nil)
-	repo.On("CreateUser", mock.Anything, "user@madagascarairlines.com", hashedPassword, "admin").Return(nil)
+	repo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+		return u.Email == "user@madagascarairlines.com" && u.PasswordHash == "hashedpassword" && u.Role == "admin"
+	})).Return(nil)
 
 	err := service.CreateUser(context.Background(), req, "admin")
 	assert.NoError(t, err)
@@ -78,7 +81,7 @@ func TestCreateUser_DBInsertFailure(t *testing.T) {
 	hashedPassword := "hashedpassword"
 
 	hasher.On("HashPassword", req.Password).Return(hashedPassword, nil)
-	repo.On("CreateUser", mock.Anything, req.Email, hashedPassword, req.Role).Return(errors.New("insert failed"))
+	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*user.User")).Return(errors.New("insert failed"))
 
 	err := service.CreateUser(context.Background(), req, "admin")
 	assert.EqualError(t, err, "insert failed")

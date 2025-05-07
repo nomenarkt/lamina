@@ -3,6 +3,7 @@ package auth
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,9 @@ import (
 )
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret123")
+	os.Setenv("JWT_SECRET", "testsecret123")
+
 	// Step 1: Generate a valid token
 	accessToken, _, err := utils.GenerateTokens(123, "admin", "admin@madagascarairlines.com")
 

@@ -20,9 +20,9 @@ func (m *MockAuthRepo) IsEmailExists(email string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockAuthRepo) CreateUser(ctx context.Context, email string, hash string) (int64, error) {
-	args := m.Called(ctx, email, hash)
-	return args.Get(0).(int64), args.Error(1) // ✅ Cast to int64 directly
+func (m *MockAuthRepo) CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error) {
+	args := m.Called(ctx, companyID, email, hash)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func (m *MockAuthRepo) FindByEmail(ctx context.Context, email string) (user.User, error) {
@@ -106,7 +106,7 @@ func TestSignupUser_Success(t *testing.T) {
 	email := "user@madagascarairlines.com"
 
 	repo.On("IsEmailExists", email).Return(false, nil)
-	repo.On("CreateUser", mock.Anything, email, "hashed123").Return(int64(42), nil)
+	repo.On("CreateUser", mock.Anything, 0, email, "hashed123").Return(int64(42), nil)
 
 	service := &AuthService{
 		repo: repo,
@@ -181,7 +181,7 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	repo := new(MockAuthRepo)
 	email := "user@madagascarairlines.com"
 	repo.On("IsEmailExists", email).Return(false, nil)
-	repo.On("CreateUser", mock.Anything, email, "hashedok").Return(int64(99), nil)
+	repo.On("CreateUser", mock.Anything, 0, email, "hashedok").Return(int64(99), nil)
 
 	service := &AuthService{
 		repo: repo,
