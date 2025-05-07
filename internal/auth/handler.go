@@ -7,11 +7,13 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB) {
-	authService := NewAuthService(NewAuthRepository(db))
+func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service AuthServiceInterface) {
+	if service == nil {
+		service = NewAuthService(NewAuthRepository(db))
+	}
 
 	router.POST("/auth/signup", func(c *gin.Context) {
-		authService.Signup(c)
+		service.Signup(c)
 	})
 
 	router.POST("/auth/login", func(c *gin.Context) {
@@ -20,7 +22,7 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		tokens, err := authService.Login(c, req)
+		tokens, err := service.Login(c.Request.Context(), req) // match interface from service.go
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return

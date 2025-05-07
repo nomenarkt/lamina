@@ -17,6 +17,12 @@ type AuthRepoInterface interface {
 	FindByEmail(ctx context.Context, email string) (user.User, error)
 }
 
+type AuthServiceInterface interface {
+	Signup(c *gin.Context)
+	SignupUser(ctx context.Context, req SignupRequest) (AuthResponse, error)
+	Login(ctx context.Context, req LoginRequest) (AuthResponse, error)
+}
+
 type AuthService struct {
 	repo           AuthRepoInterface
 	checkPassword  func(raw, hash string) error
@@ -96,7 +102,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (AuthResponse
 		return AuthResponse{}, errors.New("invalid email or password")
 	}
 
-	access, refresh, err := s.generateTokens(user.ID, user.Email, user.Role) // ← use user.Role here
+	access, refresh, err := s.generateTokens(user.ID, user.Email, user.Role)
 	if err != nil {
 		return AuthResponse{}, err
 	}

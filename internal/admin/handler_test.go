@@ -1,31 +1,88 @@
 package admin_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/nomenarkt/lamina/internal/admin"
 	"github.com/nomenarkt/lamina/internal/middleware"
+	"github.com/nomenarkt/lamina/internal/user"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func setupRouter() *gin.Engine {
+// ==== MOCKS ====
+
+type MockAdminRepo struct {
+	mock.Mock
+}
+
+func (m *MockAdminRepo) CreateUser(ctx context.Context, u *user.User) error {
+	args := m.Called(ctx, u)
+	return args.Error(0)
+}
+
+type MockHasher struct {
+	mock.Mock
+}
+
+func (m *MockHasher) HashPassword(p string) (string, error) {
+	args := m.Called(p)
+	return args.String(0), args.Error(1)
+}
+
+// ==== ROUTER SETUP ====
+
+func setupRouterWithService(service *admin.AdminService) *gin.Engine {
 	os.Setenv("JWT_SECRET", "mytestsecret")
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
 	v1 := r.Group("/api/v1")
-	db := &sqlx.DB{} // dummy DB for signature compliance
-	admin.RegisterRoutes(v1, db)
+
+	adminGroup := v1.Group("/admin", middleware.JWTMiddleware(), middleware.RequireRoles("admin"))
+	adminGroup.POST("/create-user", func(c *gin.Context) {
+		claimsVal, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authentication context"})
+			return
+		}
+
+		claims, ok := claimsVal.(*middleware.CustomClaims)
+		if !ok || claims == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user claims"})
+			return
+		}
+
+		var req admin.CreateUserRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input format"})
+			return
+		}
+
+		err := service.CreateUser(c.Request.Context(), req, claims.Email)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"message": "user successfully created"})
+	})
+
 	return r
 }
 
+// ==== TEST CASES ====
+
 func TestCreateUser_Unauthorized(t *testing.T) {
-	router := setupRouter()
+	service := admin.NewAdminService(&MockAdminRepo{}, &MockHasher{})
+	router := setupRouterWithService(service)
+
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/create-user", nil)
 	w := httptest.NewRecorder()
 
@@ -34,9 +91,9 @@ func TestCreateUser_Unauthorized(t *testing.T) {
 }
 
 func TestCreateUser_ForbiddenForViewer(t *testing.T) {
-	os.Setenv("JWT_SECRET", "mytestsecret")
+	service := admin.NewAdminService(&MockAdminRepo{}, &MockHasher{})
+	router := setupRouterWithService(service)
 
-	router := setupRouter()
 	token, _ := middleware.GenerateJWT("mytestsecret", 1234, "viewer@madagascarairlines.com", "viewer")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/create-user", nil)
@@ -45,4 +102,39 @@ func TestCreateUser_ForbiddenForViewer(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestCreateUser_Success_WithAdminRole(t *testing.T) {
+	mockRepo := new(MockAdminRepo)
+	mockHasher := new(MockHasher)
+
+	hashed := "hashed123"
+	mockHasher.On("HashPassword", "secure1234").Return(hashed, nil)
+	mockRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+		return u.Email == "successcase@madagascarairlines.com" &&
+			u.PasswordHash == hashed && u.Role == "user" && u.CompanyID == 3192
+	})).Return(nil)
+
+	service := admin.NewAdminService(mockRepo, mockHasher)
+	router := setupRouterWithService(service)
+
+	token, _ := middleware.GenerateJWT("mytestsecret", 1, "admin@madagascarairlines.com", "admin")
+
+	payload := `{
+		"company_id": 3192,
+		"email": "successcase@madagascarairlines.com",
+		"password": "secure1234",
+		"role": "user"
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/create-user", strings.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	mockHasher.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
 }

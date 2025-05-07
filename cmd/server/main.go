@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nomenarkt/lamina/common/database"
+	"github.com/nomenarkt/lamina/common/utils"
 	"github.com/nomenarkt/lamina/config"
 	"github.com/nomenarkt/lamina/internal/admin"
 	"github.com/nomenarkt/lamina/internal/auth"
@@ -26,13 +27,22 @@ func main() {
 	api := router.Group("/api/v1")
 
 	// Public routes
-	auth.RegisterRoutes(api, db)
+	authRepo := auth.NewAuthRepository(db)
+	authService := auth.NewAuthService(authRepo)
+	auth.RegisterRoutes(api, db, authService)
 
 	// Protected routes
 	api.Use(auth.AuthMiddleware())
 	{
-		user.RegisterRoutes(api, db)
-		admin.RegisterRoutes(api, db)
+		userRepo := user.NewUserRepository(db)
+		userService := user.NewUserService(userRepo)
+		userHandler := user.NewUserHandler(userService)
+		user.RegisterRoutes(api, userHandler)
+
+		adminRepo := admin.NewAdminRepository(db)
+		hasher := &utils.BcryptHasher{}
+		adminService := admin.NewAdminService(adminRepo, hasher)
+		admin.RegisterRoutes(api, adminService)
 		// tenant.RegisterRoutes(api, db) (future)
 	}
 

@@ -1,33 +1,30 @@
 package user
 
 import (
+	"context"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/nomenarkt/lamina/common/utils"
 )
 
-type UserHandler struct {
-	service *UserService
+type UserServiceInterface interface {
+	GetMe(ctx context.Context, id int64) (*User, error)
+	ListUsers(ctx context.Context) ([]User, error)
 }
 
-func NewUserHandler(s *UserService) *UserHandler {
-	return &UserHandler{service: s}
+type UserHandler struct {
+	service UserServiceInterface
+}
+
+func NewUserHandler(svc UserServiceInterface) *UserHandler {
+	return &UserHandler{service: svc}
 }
 
 func (h *UserHandler) GetMe(c *gin.Context) {
-	// Extract userID from context (injected by auth middleware)
-	idStr, exists := c.Get("userID")
+	userID, exists := utils.GetUserIDFromContext(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
-		return
-	}
-
-	userID, err := strconv.ParseInt(idStr.(string), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -40,33 +37,26 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB) {
-	userService := NewUserService(NewUserRepository(db))
-
-	users := router.Group("/user")
-	{
-		users.GET("/me", func(c *gin.Context) {
-			userID, exists := utils.GetUserIDFromContext(c)
-			if !exists {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-				return
-			}
-
-			u, err := userService.GetProfile(c, userID)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(http.StatusOK, u)
-		})
-
-		users.GET("/", func(c *gin.Context) {
-			allUsers, err := userService.ListUsers(c)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(http.StatusOK, allUsers)
-		})
+func (h *UserHandler) ListAll(c *gin.Context) {
+	users, err := h.service.ListUsers(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
+	c.JSON(http.StatusOK, users)
+}
+
+func RegisterRoutes(router *gin.RouterGroup, h *UserHandler) {
+	group := router.Group("/user")
+	group.GET("/me", h.GetMe)
+	group.GET("/", h.ListAll)
+}
+
+func (h *UserHandler) ListUsers(c *gin.Context) {
+	users, err := h.service.ListUsers(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, users)
 }
