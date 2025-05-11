@@ -57,7 +57,7 @@ func (s *AuthService) SignupUser(ctx context.Context, req SignupRequest) (AuthRe
 		return AuthResponse{}, errors.New("failed to hash password")
 	}
 
-	userID, err := s.repo.CreateUser(ctx, req.CompanyID, req.Email, hashedPassword)
+	userID, err := s.repo.CreateUser(ctx, 0, req.Email, hashedPassword) // 0 = placeholder for signup flow
 	if err != nil {
 		return AuthResponse{}, errors.New("failed to create user")
 	}
@@ -77,6 +77,11 @@ func (s *AuthService) Signup(c *gin.Context) {
 	var req SignupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	if !strings.HasSuffix(strings.ToLower(req.Email), "@madagascarairlines.com") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "signup is restricted to company email addresses"})
 		return
 	}
 

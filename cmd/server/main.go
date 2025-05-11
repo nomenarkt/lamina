@@ -11,6 +11,7 @@ import (
 	"github.com/nomenarkt/lamina/config"
 	"github.com/nomenarkt/lamina/internal/admin"
 	"github.com/nomenarkt/lamina/internal/auth"
+	"github.com/nomenarkt/lamina/internal/crew"
 	"github.com/nomenarkt/lamina/internal/user"
 )
 
@@ -43,6 +44,12 @@ func main() {
 		hasher := &utils.BcryptHasher{}
 		adminService := admin.NewAdminService(adminRepo, hasher)
 		admin.RegisterRoutes(api, adminService)
+
+		crewRepo := crew.NewRepository(db)
+		crewService := crew.NewService(crewRepo) // not NewCrewService
+		crewHandler := crew.NewHandler(crewService)
+		crew.RegisterRoutes(api, crewHandler)
+
 		// tenant.RegisterRoutes(api, db) (future)
 	}
 

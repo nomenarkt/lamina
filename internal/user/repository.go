@@ -11,6 +11,8 @@ type UserRepo interface {
 	FindAll(ctx context.Context) ([]User, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	IsAdmin(ctx context.Context, id int64) (bool, error)
+	UpdateFullName(ctx context.Context, userID int64, fullName string) error
+	UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error
 }
 
 type UserRepository struct {
@@ -50,4 +52,27 @@ func (r *UserRepository) IsAdmin(ctx context.Context, id int64) (bool, error) {
 		return false, err
 	}
 	return role == "admin", nil
+}
+
+func (r *UserRepository) UpdateFullName(ctx context.Context, userID int64, fullName string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET full_name = $1 WHERE id = $2`, fullName, userID)
+	return err
+}
+
+func (r *UserRepository) UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error {
+	query := `UPDATE users SET full_name = :full_name`
+	args := map[string]interface{}{
+		"user_id":   userID,
+		"full_name": fullName,
+	}
+
+	if companyID != nil {
+		query += `, company_id = :company_id`
+		args["company_id"] = *companyID
+	}
+
+	query += ` WHERE id = :user_id`
+
+	_, err := r.db.NamedExecContext(ctx, query, args)
+	return err
 }

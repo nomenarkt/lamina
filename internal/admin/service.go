@@ -27,11 +27,10 @@ func (s *AdminService) CreateUser(ctx context.Context, req CreateUserRequest, cr
 	}
 
 	newUser := &user.User{
-		CompanyID:    req.CompanyID,
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
-		Role:         req.Role,
-		Status:       "active", // optional, depends on schema
+		Role:         "user",
+		Status:       "active",
 		CreatedAt:    time.Now(),
 	}
 

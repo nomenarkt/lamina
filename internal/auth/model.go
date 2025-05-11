@@ -1,9 +1,9 @@
 package auth
 
 type SignupRequest struct {
-	CompanyID int    `json:"company_id" binding:"required"`
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
+	Email           string `json:"email" binding:"required,email"`
+	Password        string `json:"password" binding:"required,min=8"`
+	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
 }
 
 type LoginRequest struct {
