@@ -35,13 +35,13 @@ func TestLogin_Success(t *testing.T) {
 	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "any"}
 	repo.On("FindByEmail", mock.Anything, "test@example.com").Return(u, nil)
 
-	service := &AuthService{
+	service := &Service{
 		repo: repo,
-		checkPassword: func(raw, hash string) error {
+		checkPassword: func(_, _ string) error {
 			fmt.Println("✅ checkPassword mock called")
 			return nil
 		},
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "access-token", "refresh-token", nil
 		},
 	}
@@ -61,12 +61,12 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "wrong"}
 	repo.On("FindByEmail", mock.Anything, "test@example.com").Return(u, nil)
 
-	service := &AuthService{
+	service := &Service{
 		repo: repo,
-		checkPassword: func(raw, hash string) error {
+		checkPassword: func(_, _ string) error {
 			return errors.New("invalid")
 		},
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -84,10 +84,10 @@ func TestLogin_UserNotFound(t *testing.T) {
 	repo := new(MockAuthRepo)
 	repo.On("FindByEmail", mock.Anything, "missing@example.com").Return(user.User{}, errors.New("not found"))
 
-	service := &AuthService{
+	service := &Service{
 		repo:          repo,
 		checkPassword: func(_, _ string) error { return nil },
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -108,12 +108,12 @@ func TestSignupUser_Success(t *testing.T) {
 	repo.On("IsEmailExists", email).Return(false, nil)
 	repo.On("CreateUser", mock.Anything, 0, email, "hashed123").Return(int64(42), nil)
 
-	service := &AuthService{
+	service := &Service{
 		repo: repo,
-		hashPassword: func(p string) (string, error) {
+		hashPassword: func(_ string) (string, error) {
 			return "hashed123", nil
 		},
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "access-token", "refresh-token", nil
 		},
 	}
@@ -134,12 +134,12 @@ func TestSignupUser_EmailExists(t *testing.T) {
 
 	repo.On("IsEmailExists", email).Return(true, nil)
 
-	service := &AuthService{
+	service := &Service{
 		repo: repo,
-		hashPassword: func(p string) (string, error) {
+		hashPassword: func(_ string) (string, error) {
 			return "ignored", nil
 		},
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -158,12 +158,12 @@ func TestSignupUser_HashFailure(t *testing.T) {
 	email := "user@madagascarairlines.com"
 	repo.On("IsEmailExists", email).Return(false, nil)
 
-	service := &AuthService{
+	service := &Service{
 		repo: repo,
-		hashPassword: func(p string) (string, error) {
+		hashPassword: func(_ string) (string, error) {
 			return "", errors.New("hash failed")
 		},
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -183,12 +183,12 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	repo.On("IsEmailExists", email).Return(false, nil)
 	repo.On("CreateUser", mock.Anything, 0, email, "hashedok").Return(int64(99), nil)
 
-	service := &AuthService{
+	service := &Service{
 		repo: repo,
-		hashPassword: func(p string) (string, error) {
+		hashPassword: func(_ string) (string, error) {
 			return "hashedok", nil
 		},
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "", "", errors.New("token failed")
 		},
 	}
@@ -208,12 +208,12 @@ func TestSignupUser_InvalidDomain(t *testing.T) {
 
 	repo.On("IsEmailExists", email).Return(false, nil)
 
-	service := &AuthService{
+	service := &Service{
 		repo: repo,
-		hashPassword: func(p string) (string, error) {
+		hashPassword: func(_ string) (string, error) {
 			return "irrelevant", nil
 		},
-		generateTokens: func(id int64, email, role string) (string, string, error) {
+		generateTokens: func(_ int64, _, _ string) (string, string, error) {
 			return "", "", nil
 		},
 	}

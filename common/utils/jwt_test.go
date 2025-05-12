@@ -7,7 +7,9 @@ import (
 
 func TestJWTGenerateAndParse(t *testing.T) {
 	// Setup: Fake secret for testing
-	os.Setenv("JWT_SECRET", "testsecret123")
+	if err := os.Setenv("JWT_SECRET", "testsecret123"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
 
 	userID := int64(3190)
 	email := "m.rakotoarison@madagascarairlines.com"

@@ -28,13 +28,19 @@ func (m *MockUserRepo) IsAdmin(ctx context.Context, userID int64) (bool, error) 
 }
 
 func (m *MockUserRepo) FindByID(ctx context.Context, id int64) (*User, error) {
-	args := m.Called(id)
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	user := args.Get(0).(User)
 	return &user, args.Error(1)
 }
 
 func (m *MockUserRepo) FindAll(ctx context.Context) ([]User, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]User), args.Error(1)
 }
 
@@ -48,53 +54,58 @@ func (m *MockUserRepo) UpdateUserProfile(ctx context.Context, userID int64, full
 	return args.Error(0)
 }
 
-func TestGetMe_Success(t *testing.T) {
+func newMockedUserService() (*Service, *MockUserRepo) {
 	repo := new(MockUserRepo)
-	service := NewUserService(repo)
-
-	expectedUser := User{ID: 3190, Email: "user@madagascarairlines.com"}
-	repo.On("FindByID", int64(3190)).Return(expectedUser, nil)
-
-	user, err := service.GetMe(context.Background(), 3190)
-	assert.NoError(t, err)
-	assert.Equal(t, user, &expectedUser)
+	svc := NewUserService(repo)
+	return svc, repo
 }
 
-func TestGetMe_InvalidID(t *testing.T) {
-	repo := new(MockUserRepo)
-	service := NewUserService(repo)
+func TestUserService_GetMe(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		svc, repo := newMockedUserService()
 
-	repo.On("FindByID", int64(0)).Return(User{}, errors.New("user not found"))
+		expected := User{ID: 3190, Email: "user@madagascarairlines.com"}
+		repo.On("FindByID", context.Background(), int64(3190)).Return(expected, nil)
 
-	_, err := service.GetMe(context.Background(), 0)
-	assert.Error(t, err)
-	assert.Equal(t, "user not found", err.Error())
+		user, err := svc.GetMe(context.Background(), 3190)
+		assert.NoError(t, err)
+		assert.Equal(t, &expected, user)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		svc, repo := newMockedUserService()
+
+		repo.On("FindByID", context.Background(), int64(0)).Return(User{}, errors.New("user not found"))
+
+		_, err := svc.GetMe(context.Background(), 0)
+		assert.Error(t, err)
+		assert.Equal(t, "user not found", err.Error())
+	})
 }
 
-func TestFindAll_UsersExist(t *testing.T) {
-	repo := new(MockUserRepo)
-	service := NewUserService(repo)
+func TestUserService_FindAll(t *testing.T) {
+	t.Run("users exist", func(t *testing.T) {
+		svc, repo := newMockedUserService()
 
-	mockUsers := []User{
-		{ID: 3190, Email: "first@madagascarairlines.com"},
-		{ID: 3191, Email: "second@madagascarairlines.com"},
-	}
+		mockUsers := []User{
+			{ID: 3190, Email: "first@madagascarairlines.com"},
+			{ID: 3191, Email: "second@madagascarairlines.com"},
+		}
+		repo.On("FindAll", context.Background()).Return(mockUsers, nil)
 
-	repo.On("FindAll", mock.Anything).Return(mockUsers, nil)
+		users, err := svc.FindAll(context.Background())
+		assert.NoError(t, err)
+		assert.Len(t, users, 2)
+		assert.Equal(t, "first@madagascarairlines.com", users[0].Email)
+	})
 
-	users, err := service.FindAll(context.Background())
-	assert.NoError(t, err)
-	assert.Len(t, users, 2)
-	assert.Equal(t, "first@madagascarairlines.com", users[0].Email)
-}
+	t.Run("no users", func(t *testing.T) {
+		svc, repo := newMockedUserService()
 
-func TestFindAll_NoUsers(t *testing.T) {
-	repo := new(MockUserRepo)
-	service := NewUserService(repo)
+		repo.On("FindAll", context.Background()).Return([]User{}, nil)
 
-	repo.On("FindAll", mock.Anything).Return([]User{}, nil)
-
-	users, err := service.FindAll(context.Background())
-	assert.NoError(t, err)
-	assert.Empty(t, users)
+		users, err := svc.FindAll(context.Background())
+		assert.NoError(t, err)
+		assert.Empty(t, users)
+	})
 }

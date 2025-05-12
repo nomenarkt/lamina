@@ -1,3 +1,4 @@
+// Package crew handles HTTP endpoints for crew assignment and lookup.
 package crew
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Handler defines the HTTP handler for crew operations.
 type Handler struct {
-	service CrewServiceInterface // 🔧 Use the correct interface name
+	service ServiceInterface
 }
 
+// AssignCrewRequest represents the expected JSON payload for crew assignment.
 type AssignCrewRequest struct {
 	FlightNumber string `json:"flight_number"`
 	CrewID       int64  `json:"crew_id"`
@@ -23,7 +26,8 @@ type AssignCrewRequest struct {
 	CheckoutTime string `json:"checkout_time"`
 }
 
-func NewHandler(s CrewServiceInterface) *Handler {
+// NewHandler creates a new Handler instance for the crew service.
+func NewHandler(s ServiceInterface) *Handler {
 	return &Handler{service: s}
 }
 
@@ -32,6 +36,7 @@ func parseTime(s string) time.Time {
 	return t
 }
 
+// AssignCrew assigns a crew member to a flight.
 // POST /crew/assign
 func (h *Handler) AssignCrew(c *gin.Context) {
 	var req AssignCrewRequest
@@ -46,7 +51,7 @@ func (h *Handler) AssignCrew(c *gin.Context) {
 		return
 	}
 
-	ca := &CrewAssignment{
+	ca := &Assignment{
 		FlightID:     flightID,
 		CrewID:       int(req.CrewID),
 		CrewRole:     req.CrewRole,
@@ -66,6 +71,7 @@ func (h *Handler) AssignCrew(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Crew assigned"})
 }
 
+// GetCrewByFlight retrieves assigned crew for a flight.
 // GET /crew/flight/:flight_id
 func (h *Handler) GetCrewByFlight(c *gin.Context) {
 	flightIDStr := c.Param("flight_id")
@@ -84,6 +90,7 @@ func (h *Handler) GetCrewByFlight(c *gin.Context) {
 	c.JSON(http.StatusOK, crew)
 }
 
+// RemoveCrewByFlight unassigns all crew from a flight.
 // DELETE /crew/flight/:flight_id
 func (h *Handler) RemoveCrewByFlight(c *gin.Context) {
 	flightIDStr := c.Param("flight_id")
@@ -102,6 +109,7 @@ func (h *Handler) RemoveCrewByFlight(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Crew unassigned from flight"})
 }
 
+// GetCrewDetailsByFlight returns detailed crew info for a flight.
 // GET /crew/flight/:flight_id/details
 func (h *Handler) GetCrewDetailsByFlight(c *gin.Context) {
 	flightIDStr := c.Param("flight_id")

@@ -24,18 +24,23 @@ func (m *MockAuthService) Signup(c *gin.Context) {
 	m.Called(c)
 }
 
-func (m *MockAuthService) SignupUser(ctx context.Context, req auth.SignupRequest) (auth.AuthResponse, error) {
+func (m *MockAuthService) SignupUser(ctx context.Context, req auth.SignupRequest) (auth.Response, error) {
 	args := m.Called(ctx, req)
-	return args.Get(0).(auth.AuthResponse), args.Error(1)
+	return args.Get(0).(auth.Response), args.Error(1)
 }
 
-func (m *MockAuthService) Login(ctx context.Context, req auth.LoginRequest) (auth.AuthResponse, error) {
+func (m *MockAuthService) Login(ctx context.Context, req auth.LoginRequest) (auth.Response, error) {
 	args := m.Called(ctx, req)
-	return args.Get(0).(auth.AuthResponse), args.Error(1)
+	return args.Get(0).(auth.Response), args.Error(1)
 }
 
-func setupRouterWithMock(service auth.AuthServiceInterface) *gin.Engine {
-	os.Setenv("JWT_SECRET", "testsecret123")
+func setupRouterWithMock(t *testing.T, service auth.ServiceInterface) *gin.Engine {
+	t.Helper()
+
+	if err := os.Setenv("JWT_SECRET", "testsecret123"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	v1 := router.Group("/api/v1")
@@ -45,7 +50,7 @@ func setupRouterWithMock(service auth.AuthServiceInterface) *gin.Engine {
 
 func TestSignup_CallsService(t *testing.T) {
 	mockService := new(MockAuthService)
-	router := setupRouterWithMock(mockService)
+	router := setupRouterWithMock(t, mockService)
 
 	mockService.On("Signup", mock.Anything).Return()
 
@@ -63,13 +68,13 @@ func TestSignup_CallsService(t *testing.T) {
 
 func TestLogin_Success(t *testing.T) {
 	mockService := new(MockAuthService)
-	router := setupRouterWithMock(mockService)
+	router := setupRouterWithMock(t, mockService)
 
 	loginReq := auth.LoginRequest{
 		Email:    "test@madagascarairlines.com",
 		Password: "pass1234",
 	}
-	loginRes := auth.AuthResponse{
+	loginRes := auth.Response{
 		AccessToken:  "access123",
 		RefreshToken: "refresh123",
 	}
@@ -84,7 +89,7 @@ func TestLogin_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var res auth.AuthResponse
+	var res auth.Response
 	err := json.Unmarshal(w.Body.Bytes(), &res)
 	assert.NoError(t, err)
 	assert.Equal(t, "access123", res.AccessToken)
@@ -93,13 +98,13 @@ func TestLogin_Success(t *testing.T) {
 
 func TestLogin_Failure(t *testing.T) {
 	mockService := new(MockAuthService)
-	router := setupRouterWithMock(mockService)
+	router := setupRouterWithMock(t, mockService)
 
 	reqData := auth.LoginRequest{
 		Email:    "wrong@madagascarairlines.com",
 		Password: "invalid",
 	}
-	mockService.On("Login", mock.Anything, reqData).Return(auth.AuthResponse{}, errors.New("invalid email or password"))
+	mockService.On("Login", mock.Anything, reqData).Return(auth.Response{}, errors.New("invalid email or password"))
 
 	body, _ := json.Marshal(reqData)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBuffer(body))
@@ -114,7 +119,7 @@ func TestLogin_Failure(t *testing.T) {
 
 func TestLogin_BadJSON(t *testing.T) {
 	mockService := new(MockAuthService)
-	router := setupRouterWithMock(mockService)
+	router := setupRouterWithMock(t, mockService)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{notvalid}`))
 	req.Header.Set("Content-Type", "application/json")

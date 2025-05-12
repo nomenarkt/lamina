@@ -1,3 +1,4 @@
+// Package admin handles the admin routes and request processing.
 package admin
 
 import (
@@ -9,7 +10,8 @@ import (
 	"github.com/nomenarkt/lamina/internal/middleware"
 )
 
-func RegisterRoutes(r *gin.RouterGroup, adminService *AdminService) {
+// RegisterRoutes sets up the admin routes and applies JWT and role-based middleware.
+func RegisterRoutes(r *gin.RouterGroup, adminService *Service) {
 	adminGroup := r.Group("/admin", middleware.JWTMiddleware(), middleware.RequireRoles("admin"))
 
 	adminGroup.POST("/create-user", func(c *gin.Context) {

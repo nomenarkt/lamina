@@ -14,14 +14,14 @@ type MockCrewRepo struct {
 	mock.Mock
 }
 
-func (m *MockCrewRepo) Create(ctx context.Context, assignment *crew.CrewAssignment) error {
+func (m *MockCrewRepo) Create(ctx context.Context, assignment *crew.Assignment) error {
 	args := m.Called(ctx, assignment)
 	return args.Error(0)
 }
 
-func (m *MockCrewRepo) GetByFlightID(ctx context.Context, flightID int64) ([]crew.CrewAssignment, error) {
+func (m *MockCrewRepo) GetByFlightID(ctx context.Context, flightID int64) ([]crew.Assignment, error) {
 	args := m.Called(ctx, flightID)
-	return args.Get(0).([]crew.CrewAssignment), args.Error(1)
+	return args.Get(0).([]crew.Assignment), args.Error(1)
 }
 
 func (m *MockCrewRepo) DeleteByFlightID(ctx context.Context, flightID int64) error {
@@ -34,16 +34,16 @@ func (m *MockCrewRepo) GetFlightIDByNumber(ctx context.Context, flightNumber str
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *MockCrewRepo) GetDetailedByFlightID(ctx context.Context, flightID int64) ([]crew.CrewAssignmentDetail, error) {
+func (m *MockCrewRepo) GetDetailedByFlightID(ctx context.Context, flightID int64) ([]crew.AssignmentDetail, error) {
 	args := m.Called(ctx, flightID)
-	return args.Get(0).([]crew.CrewAssignmentDetail), args.Error(1)
+	return args.Get(0).([]crew.AssignmentDetail), args.Error(1)
 }
 
 func TestService_AssignCrew_Success(t *testing.T) {
 	repo := new(MockCrewRepo)
 	service := crew.NewService(repo)
 
-	assignment := &crew.CrewAssignment{
+	assignment := &crew.Assignment{
 		FlightID:   1001,
 		CrewID:     3199,
 		CrewRole:   "CDB",
@@ -62,7 +62,7 @@ func TestService_GetCrewByFlight_Success(t *testing.T) {
 	repo := new(MockCrewRepo)
 	service := crew.NewService(repo)
 
-	expected := []crew.CrewAssignment{
+	expected := []crew.Assignment{
 		{ID: 1, FlightID: 1001, CrewID: 3199, CrewRole: "CDB"},
 		{ID: 2, FlightID: 1001, CrewID: 3200, CrewRole: "OPL"},
 	}

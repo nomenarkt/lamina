@@ -1,21 +1,26 @@
+// Package auth defines data models related to authentication operations.
 package auth
 
+// SignupRequest represents the expected payload for a user signup request.
 type SignupRequest struct {
 	Email           string `json:"email" binding:"required,email"`
 	Password        string `json:"password" binding:"required,min=8"`
 	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
 }
 
+// LoginRequest represents the expected payload for a user login request.
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }
 
-type AuthResponse struct {
+// Response contains JWT tokens returned upon successful authentication.
+type Response struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
 
+// User represents the structure of a user in the system's database.
 type User struct {
 	ID           int64  `db:"id"`
 	Email        string `db:"email"`

@@ -3,12 +3,11 @@ package middleware_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/nomenarkt/lamina/internal/middleware"
@@ -30,9 +29,9 @@ func generateToken(secret string, userID int64, role string) string {
 }
 
 func TestJWTMiddleware_Success(t *testing.T) {
-	os.Setenv("JWT_SECRET", "mytestsecret")
-	gin.SetMode(gin.TestMode)
+	t.Setenv("JWT_SECRET", "mytestsecret")
 
+	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(middleware.JWTMiddleware())
 	r.GET("/protected", func(c *gin.Context) {
@@ -65,7 +64,8 @@ func TestJWTMiddleware_MissingHeader(t *testing.T) {
 }
 
 func TestJWTMiddleware_InvalidToken(t *testing.T) {
-	os.Setenv("JWT_SECRET", "mytestsecret")
+	t.Setenv("JWT_SECRET", "mytestsecret")
+
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()

@@ -1,3 +1,4 @@
+// Package admin provides interfaces and implementations for managing admin operations.
 package admin
 
 import (
@@ -7,19 +8,23 @@ import (
 	"github.com/nomenarkt/lamina/internal/user"
 )
 
-type AdminRepo interface {
+// Repo defines the behavior for admin-related persistence logic.
+type Repo interface {
 	CreateUser(ctx context.Context, u *user.User) error
 }
 
-type AdminRepository struct {
+// Repository implements Repo using a SQL database.
+type Repository struct {
 	db *sqlx.DB
 }
 
-func NewAdminRepository(db *sqlx.DB) *AdminRepository {
-	return &AdminRepository{db: db}
+// NewAdminRepository creates a new Repository with the given database connection.
+func NewAdminRepository(db *sqlx.DB) *Repository {
+	return &Repository{db: db}
 }
 
-func (r *AdminRepository) CreateUser(ctx context.Context, u *user.User) error {
+// CreateUser inserts a new user into the users table, optionally including company_id if present.
+func (r *Repository) CreateUser(ctx context.Context, u *user.User) error {
 	// Conditional additions
 	companyColumn := ""
 	companyValue := ""

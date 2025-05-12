@@ -1,3 +1,4 @@
+// Package user implements business logic for user-related operations.
 package user
 
 import (
@@ -5,27 +6,34 @@ import (
 	"strings"
 )
 
-type UserService struct {
-	repo UserRepo
+// Service provides methods for working with user entities.
+type Service struct {
+	repo Repo
 }
 
-func NewUserService(repo UserRepo) *UserService {
-	return &UserService{repo: repo}
+// NewUserService creates a new instance of Service.
+func NewUserService(repo Repo) *Service {
+	return &Service{repo: repo}
 }
 
-func (s *UserService) GetMe(ctx context.Context, id int64) (*User, error) {
+// GetMe retrieves the user associated with the given ID.
+func (s *Service) GetMe(ctx context.Context, id int64) (*User, error) {
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *UserService) FindAll(ctx context.Context) ([]User, error) {
+// FindAll retrieves a list of all users.
+func (s *Service) FindAll(ctx context.Context) ([]User, error) {
 	return s.repo.FindAll(ctx)
 }
 
-func (s *UserService) ListUsers(ctx context.Context) ([]User, error) {
+// ListUsers returns all users. This is similar to FindAll.
+func (s *Service) ListUsers(ctx context.Context) ([]User, error) {
 	return s.repo.FindAll(ctx)
 }
 
-func (s *UserService) UpdateUserProfile(ctx context.Context, userID int64, req UpdateProfileRequest) error {
+// UpdateUserProfile updates a user's full name and optionally their company ID,
+// depending on whether the user's email belongs to the internal domain.
+func (s *Service) UpdateUserProfile(ctx context.Context, userID int64, req UpdateProfileRequest) error {
 	user, err := s.repo.FindByID(ctx, userID)
 	if err != nil {
 		return err
@@ -33,7 +41,7 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, userID int64, req U
 
 	var companyID *int
 
-	// If the user has a corporate email, allow setting company_id (if provided)
+	// Only allow setting companyID if user is internal
 	if strings.HasSuffix(strings.ToLower(user.Email), "@madagascarairlines.com") {
 		if req.CompanyID != nil {
 			companyID = req.CompanyID

@@ -34,8 +34,7 @@ func (m *MockHasher) HashPassword(p string) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
-func setupRouterWithService(service *admin.AdminService) *gin.Engine {
-	os.Setenv("JWT_SECRET", "mytestsecret")
+func setupRouterWithService(service *admin.Service) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
@@ -74,6 +73,10 @@ func setupRouterWithService(service *admin.AdminService) *gin.Engine {
 }
 
 func TestCreateUser_Unauthorized(t *testing.T) {
+	if err := os.Setenv("JWT_SECRET", "mytestsecret"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+
 	service := admin.NewAdminService(&MockAdminRepo{}, &MockHasher{})
 	router := setupRouterWithService(service)
 
@@ -85,6 +88,10 @@ func TestCreateUser_Unauthorized(t *testing.T) {
 }
 
 func TestCreateUser_ForbiddenForViewer(t *testing.T) {
+	if err := os.Setenv("JWT_SECRET", "mytestsecret"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+
 	service := admin.NewAdminService(&MockAdminRepo{}, &MockHasher{})
 	router := setupRouterWithService(service)
 
@@ -99,6 +106,10 @@ func TestCreateUser_ForbiddenForViewer(t *testing.T) {
 }
 
 func TestCreateUser_Success_WithAdminRole(t *testing.T) {
+	if err := os.Setenv("JWT_SECRET", "mytestsecret"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+
 	mockRepo := new(MockAdminRepo)
 	mockHasher := new(MockHasher)
 
@@ -108,8 +119,8 @@ func TestCreateUser_Success_WithAdminRole(t *testing.T) {
 	mockRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
 		return u.Email == "successcase@madagascarairlines.com" &&
 			u.PasswordHash == hashed &&
-			u.CompanyID == nil && // You were asserting this already
-			u.Role == "" // ✅ Fix: accept the real behavior
+			u.CompanyID == nil &&
+			u.Role == ""
 	})).Return(nil)
 
 	service := admin.NewAdminService(mockRepo, mockHasher)

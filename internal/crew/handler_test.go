@@ -18,12 +18,12 @@ type MockCrewService struct {
 	mock.Mock
 }
 
-func (m *MockCrewService) GetCrewByFlight(ctx context.Context, flightID int64) ([]crew.CrewAssignment, error) {
+func (m *MockCrewService) GetCrewByFlight(ctx context.Context, flightID int64) ([]crew.Assignment, error) {
 	args := m.Called(ctx, flightID)
-	return args.Get(0).([]crew.CrewAssignment), args.Error(1)
+	return args.Get(0).([]crew.Assignment), args.Error(1)
 }
 
-func (m *MockCrewService) AssignCrew(ctx context.Context, ca *crew.CrewAssignment) error {
+func (m *MockCrewService) AssignCrew(ctx context.Context, ca *crew.Assignment) error {
 	args := m.Called(ctx, ca)
 	return args.Error(0)
 }
@@ -33,9 +33,9 @@ func (m *MockCrewService) RemoveCrewByFlight(ctx context.Context, flightID int64
 	return args.Error(0)
 }
 
-func (m *MockCrewService) GetDetailedCrewByFlight(ctx context.Context, flightID int64) ([]crew.CrewAssignmentDetail, error) {
+func (m *MockCrewService) GetDetailedCrewByFlight(ctx context.Context, flightID int64) ([]crew.AssignmentDetail, error) {
 	args := m.Called(ctx, flightID)
-	return args.Get(0).([]crew.CrewAssignmentDetail), args.Error(1)
+	return args.Get(0).([]crew.AssignmentDetail), args.Error(1)
 }
 
 func (m *MockCrewService) ResolveFlightID(ctx context.Context, flightNumber string) (int64, error) {
@@ -63,7 +63,7 @@ func TestGetCrewByFlight_Success(t *testing.T) {
 	router := setupRouterWithHandler(handler)
 
 	// Only mock what's actually used
-	mockService.On("GetDetailedCrewByFlight", mock.Anything, int64(42)).Return([]crew.CrewAssignmentDetail{
+	mockService.On("GetDetailedCrewByFlight", mock.Anything, int64(42)).Return([]crew.AssignmentDetail{
 		{
 			CrewID:        1001,
 			CrewRole:      "CDB",
@@ -73,7 +73,7 @@ func TestGetCrewByFlight_Success(t *testing.T) {
 		},
 	}, nil)
 
-	mockService.On("GetCrewByFlight", mock.Anything, int64(42)).Return([]crew.CrewAssignment{}, nil)
+	mockService.On("GetCrewByFlight", mock.Anything, int64(42)).Return([]crew.Assignment{}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/crew/flight/42", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)

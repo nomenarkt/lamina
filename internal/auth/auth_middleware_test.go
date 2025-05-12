@@ -3,28 +3,25 @@ package auth
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nomenarkt/lamina/common/utils"
 )
 
-func TestAuthMiddleware_ValidToken(t *testing.T) {
-	t.Setenv("JWT_SECRET", "testsecret123")
-	os.Setenv("JWT_SECRET", "testsecret123")
+func TestMiddleware_ValidToken(t *testing.T) {
+	t.Setenv("JWT_SECRET", "testsecret123") // ✅ Safe test isolation
 
 	// Step 1: Generate a valid token
 	accessToken, _, err := utils.GenerateTokens(123, "admin", "admin@madagascarairlines.com")
-
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
 
-	// Step 2: Setup a Gin router with the AuthMiddleware
+	// Step 2: Setup a Gin router with the Middleware
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(AuthMiddleware())
+	router.Use(Middleware())
 	router.GET("/protected", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Access granted"})
 	})

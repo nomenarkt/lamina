@@ -8,30 +8,26 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nomenarkt/lamina/common/utils"
-	"github.com/nomenarkt/lamina/internal/user"
 )
 
-type AuthRepoInterface interface {
-	IsEmailExists(email string) (bool, error)
-	CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error)
-	FindByEmail(ctx context.Context, email string) (user.User, error)
-}
-
-type AuthServiceInterface interface {
+// ServiceInterface defines the interface for Service business logic.
+type ServiceInterface interface {
 	Signup(c *gin.Context)
-	SignupUser(ctx context.Context, req SignupRequest) (AuthResponse, error)
-	Login(ctx context.Context, req LoginRequest) (AuthResponse, error)
+	SignupUser(ctx context.Context, req SignupRequest) (Response, error)
+	Login(ctx context.Context, req LoginRequest) (Response, error)
 }
 
-type AuthService struct {
-	repo           AuthRepoInterface
+// Service provides user authentication logic.
+type Service struct {
+	repo           Repository
 	checkPassword  func(raw, hash string) error
 	hashPassword   func(p string) (string, error)
 	generateTokens func(id int64, email, role string) (string, string, error)
 }
 
-func NewAuthService(r AuthRepoInterface) *AuthService {
-	return &AuthService{
+// NewService creates a new Service instance.
+func NewService(r Repository) *Service {
+	return &Service{
 		repo:           r,
 		checkPassword:  utils.CheckPasswordHash,
 		hashPassword:   utils.HashPassword,
@@ -39,41 +35,43 @@ func NewAuthService(r AuthRepoInterface) *AuthService {
 	}
 }
 
-func (s *AuthService) SignupUser(ctx context.Context, req SignupRequest) (AuthResponse, error) {
+// SignupUser registers a new user and returns tokens.
+func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, error) {
 	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
-		return AuthResponse{}, errors.New("only @madagascarairlines.com emails are allowed")
+		return Response{}, errors.New("only @madagascarairlines.com emails are allowed")
 	}
 
 	exists, err := s.repo.IsEmailExists(req.Email)
 	if err != nil {
-		return AuthResponse{}, errors.New("failed to check user existence")
+		return Response{}, errors.New("failed to check user existence")
 	}
 	if exists {
-		return AuthResponse{}, errors.New("email already registered")
+		return Response{}, errors.New("email already registered")
 	}
 
 	hashedPassword, err := s.hashPassword(req.Password)
 	if err != nil {
-		return AuthResponse{}, errors.New("failed to hash password")
+		return Response{}, errors.New("failed to hash password")
 	}
 
-	userID, err := s.repo.CreateUser(ctx, 0, req.Email, hashedPassword) // 0 = placeholder for signup flow
+	userID, err := s.repo.CreateUser(ctx, 0, req.Email, hashedPassword)
 	if err != nil {
-		return AuthResponse{}, errors.New("failed to create user")
+		return Response{}, errors.New("failed to create user")
 	}
 
 	access, refresh, err := s.generateTokens(userID, req.Email, "user")
 	if err != nil {
-		return AuthResponse{}, errors.New("failed to generate tokens")
+		return Response{}, errors.New("failed to generate tokens")
 	}
 
-	return AuthResponse{
+	return Response{
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil
 }
 
-func (s *AuthService) Signup(c *gin.Context) {
+// Signup is a Gin handler that registers a new user.
+func (s *Service) Signup(c *gin.Context) {
 	var req SignupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
@@ -97,22 +95,23 @@ func (s *AuthService) Signup(c *gin.Context) {
 	})
 }
 
-func (s *AuthService) Login(ctx context.Context, req LoginRequest) (AuthResponse, error) {
+// Login validates a user and returns new tokens.
+func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error) {
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
-		return AuthResponse{}, err
+		return Response{}, err
 	}
 
 	if err := s.checkPassword(req.Password, user.PasswordHash); err != nil {
-		return AuthResponse{}, errors.New("invalid email or password")
+		return Response{}, errors.New("invalid email or password")
 	}
 
 	access, refresh, err := s.generateTokens(user.ID, user.Email, user.Role)
 	if err != nil {
-		return AuthResponse{}, err
+		return Response{}, err
 	}
 
-	return AuthResponse{
+	return Response{
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil

@@ -1,3 +1,4 @@
+// Package main starts the application server.
 package main
 
 import (
@@ -21,19 +22,24 @@ func main() {
 	config.LoadEnv()
 
 	db := database.ConnectDB()
-	defer db.Close()
+
+	// ✅ Properly check error on closing DB
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("failed to close database: %v", err)
+		}
+	}()
 
 	router := gin.Default()
-
 	api := router.Group("/api/v1")
 
 	// Public routes
 	authRepo := auth.NewAuthRepository(db)
-	authService := auth.NewAuthService(authRepo)
+	authService := auth.NewService(authRepo)
 	auth.RegisterRoutes(api, db, authService)
 
 	// Protected routes
-	api.Use(auth.AuthMiddleware())
+	api.Use(auth.Middleware())
 	{
 		userRepo := user.NewUserRepository(db)
 		userService := user.NewUserService(userRepo)
@@ -46,11 +52,11 @@ func main() {
 		admin.RegisterRoutes(api, adminService)
 
 		crewRepo := crew.NewRepository(db)
-		crewService := crew.NewService(crewRepo) // not NewCrewService
+		crewService := crew.NewService(crewRepo)
 		crewHandler := crew.NewHandler(crewService)
 		crew.RegisterRoutes(api, crewHandler)
 
-		// tenant.RegisterRoutes(api, db) (future)
+		// tenant.RegisterRoutes(api, db)
 	}
 
 	port := os.Getenv("PORT")
@@ -58,5 +64,9 @@ func main() {
 		port = "8080"
 	}
 	log.Printf("Starting server on port %s", port)
-	router.Run(":" + port)
+
+	// ✅ Properly check error when running router
+	if err := router.Run(":" + port); err != nil {
+		log.Fatalf("failed to start server: %v", err)
+	}
 }

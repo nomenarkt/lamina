@@ -7,9 +7,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service AuthServiceInterface) {
+// RegisterRoutes registers the authentication endpoints for signup and login.
+func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterface) {
 	if service == nil {
-		service = NewAuthService(NewAuthRepository(db))
+		service = NewService(NewAuthRepository(db))
 	}
 
 	router.POST("/auth/signup", func(c *gin.Context) {

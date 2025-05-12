@@ -1,3 +1,4 @@
+// Package utils provides utility functions for authentication, JWT handling, and password hashing.
 package utils
 
 import (
@@ -10,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// ✅ Struct defining what your JWT will contain
+// Claims defines the custom JWT payload used in token generation and validation.
 type Claims struct {
 	UserID int64  `json:"user_id"`
 	Email  string `json:"email"`
@@ -18,7 +19,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// ✅ Function to generate Access and Refresh Tokens
+// GenerateTokens creates a new JWT access token and a stubbed refresh token.
 func GenerateTokens(userID int64, email string, role string) (string, string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
@@ -46,21 +47,7 @@ func GenerateTokens(userID int64, email string, role string) (string, string, er
 	return accessToken, refreshToken, nil
 }
 
-// ✅ NEW: ParseToken to validate and extract Claims from JWT
-// JWT Token Parsing Logic
-// -----------------------
-// The "Missing HMAC secret" error occurs when the server attempts to parse a JWT
-// but cannot find the JWT_SECRET environment variable.
-//
-// This is *not* related to client-side HMAC signatures or missing request headers.
-//
-// ✅ To fix this error:
-// 1. Set JWT_SECRET in your .env file or server environment.
-// 2. Make sure Docker or your deployment environment passes it at runtime.
-// 3. Avoid Docker layer caching issues that skip source recompilation.
-//
-// This error comes from jwt.ParseWithClaims when given an empty signing key.
-
+// ParseToken validates a JWT and returns its parsed Claims.
 func ParseToken(tokenString string) (*Claims, error) {
 	fmt.Println("JWT_SECRET (runtime):", os.Getenv("JWT_SECRET"))
 
@@ -69,7 +56,7 @@ func ParseToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("JWT_SECRET is not set in the environment")
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(_ *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	})
 
@@ -80,8 +67,8 @@ func ParseToken(tokenString string) (*Claims, error) {
 	return nil, err
 }
 
-// ✅ NEW: Middleware to check auth and inject user info into Gin Context
-func AuthMiddleware() gin.HandlerFunc {
+// Middleware extracts and validates JWT tokens from requests, injecting user info into context.
+func Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
@@ -104,7 +91,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Inject into context
 		c.Set("userID", claims.UserID)
 		c.Set("role", claims.Role)
 

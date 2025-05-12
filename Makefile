@@ -36,3 +36,7 @@ dev-up: down rebuild
 	@echo "==> Starting app..."
 	docker-compose up app
 
+.PHONY: lint
+lint:
+	@echo "==> Running linters..."
+	golangci-lint run ./...
