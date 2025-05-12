@@ -8,35 +8,33 @@ on:
 
 jobs:
   build:
-    name: Test & Lint on Go ${{ matrix.go }}
+    name: Build, Lint & Test on Go 1.24.1
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        go: ['1.20', '1.21.6', 'stable']
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Go
+      - name: Set up Go 1.24.1
         uses: actions/setup-go@v4
         with:
-          go-version: ${{ matrix.go }}
+          go-version: '1.24.1'
           cache: true
 
-      - name: Print Go Version
+      - name: Print Go version
         run: go version
 
-      - name: Install Dependencies
-        run: go mod tidy
+      - name: Verify go.mod is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
 
-      - name: Run Unit Tests with Coverage
+      - name: Run unit tests with coverage
         run: |
           go test ./... -v -coverprofile=coverage.out
           go tool cover -func=coverage.out
 
-      - name: Upload Coverage to Codecov (optional)
+      - name: Upload coverage to Codecov
         if: env.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v3
         with:
@@ -48,5 +46,5 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.54.2
           echo "$(pwd)/bin" >> $GITHUB_PATH
 
-      - name: Run golangci-lint
+      - name: Run linter
         run: golangci-lint run ./... --timeout=5m
