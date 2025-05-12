@@ -1,0 +1,29 @@
+run:
+  timeout: 2m
+
+issues:
+  exclude-use-default: false
+
+linters:
+  enable:
+    - govet
+    - gofmt
+    - goimports
+    - errcheck
+    - staticcheck
+    - revive
+    - unused
+    - ineffassign
+    - structcheck
+    - typecheck
+    - depguard
+
+linters-settings:
+  revive:
+    ignore-generated-header: true
+  depguard:
+    list-type: blacklist
+    packages:
+      - fmt  # e.g., forbid use of fmt in production/internal logic
+    packages-with-error-message:
+      fmt: "Use a logger interface instead of fmt"
