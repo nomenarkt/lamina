@@ -17,6 +17,10 @@ func (s *UserService) GetMe(ctx context.Context, id int64) (*User, error) {
 	return s.repo.FindByID(ctx, id)
 }
 
+func (s *UserService) FindAll(ctx context.Context) ([]User, error) {
+	return s.repo.FindAll(ctx)
+}
+
 func (s *UserService) ListUsers(ctx context.Context) ([]User, error) {
 	return s.repo.FindAll(ctx)
 }

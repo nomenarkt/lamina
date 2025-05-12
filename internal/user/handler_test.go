@@ -14,9 +14,10 @@ import (
 
 // MockUserService uses function fields to simulate service methods
 type MockUserService struct {
-	GetMeFunc      func(ctx context.Context, id int64) (*user.User, error)
-	GetProfileFunc func(ctx context.Context, id int64) (*user.User, error)
-	ListUsersFunc  func(ctx context.Context) ([]user.User, error)
+	GetMeFunc             func(ctx context.Context, id int64) (*user.User, error)
+	GetProfileFunc        func(ctx context.Context, id int64) (*user.User, error)
+	ListUsersFunc         func(ctx context.Context) ([]user.User, error)
+	UpdateUserProfileFunc func(ctx context.Context, userID int64, req user.UpdateProfileRequest) error
 }
 
 func (m *MockUserService) GetMe(ctx context.Context, id int64) (*user.User, error) {
@@ -27,6 +28,10 @@ func (m *MockUserService) GetProfile(ctx context.Context, id int64) (*user.User,
 }
 func (m *MockUserService) ListUsers(ctx context.Context) ([]user.User, error) {
 	return m.ListUsersFunc(ctx)
+}
+
+func (m *MockUserService) UpdateUserProfile(ctx context.Context, userID int64, req user.UpdateProfileRequest) error {
+	return m.UpdateUserProfileFunc(ctx, userID, req)
 }
 
 // Injects userID into Gin context properly

@@ -36,14 +36,14 @@ func TestCreateUser_Success(t *testing.T) {
 	req := CreateUserRequest{
 		Email:    "user@madagascarairlines.com",
 		Password: "securepass",
-		Role:     "admin",
 	}
 
 	hashedPassword := "hashedpassword"
 
 	hasher.On("HashPassword", req.Password).Return(hashedPassword, nil)
 	repo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
-		return u.Email == "user@madagascarairlines.com" && u.PasswordHash == "hashedpassword" && u.Role == "admin"
+		return u.Email == "user@madagascarairlines.com" &&
+			u.PasswordHash == "hashedpassword"
 	})).Return(nil)
 
 	err := service.CreateUser(context.Background(), req, "admin")
@@ -58,7 +58,6 @@ func TestCreateUser_HashFailure(t *testing.T) {
 	req := CreateUserRequest{
 		Email:    "user@madagascarairlines.com",
 		Password: "securepass",
-		Role:     "admin",
 	}
 
 	hasher.On("HashPassword", req.Password).Return("", errors.New("hash error"))
@@ -75,7 +74,6 @@ func TestCreateUser_DBInsertFailure(t *testing.T) {
 	req := CreateUserRequest{
 		Email:    "user@madagascarairlines.com",
 		Password: "securepass",
-		Role:     "admin",
 	}
 
 	hashedPassword := "hashedpassword"

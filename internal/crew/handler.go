@@ -71,17 +71,17 @@ func (h *Handler) GetCrewByFlight(c *gin.Context) {
 	flightIDStr := c.Param("flight_id")
 	flightID, err := strconv.ParseInt(flightIDStr, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid flight ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid flight ID"})
 		return
 	}
 
-	assignments, err := h.service.GetCrewByFlight(c.Request.Context(), flightID)
+	crew, err := h.service.GetDetailedCrewByFlight(c.Request.Context(), flightID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch crew"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve crew"})
 		return
 	}
 
-	c.JSON(http.StatusOK, assignments)
+	c.JSON(http.StatusOK, crew)
 }
 
 // DELETE /crew/flight/:flight_id
