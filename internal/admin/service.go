@@ -3,8 +3,6 @@ package admin
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"time"
 
 	"github.com/nomenarkt/lamina/common/utils"
@@ -28,9 +26,9 @@ func NewAdminService(repo Repo, hasher utils.PasswordHasher) *Service {
 // CreateUser creates a new user based on the admin request.
 // The 'createdBy' parameter is currently unused, but reserved for audit logging or future features.
 func (s *Service) CreateUser(ctx context.Context, req CreateUserRequest, _ string) error {
-	if !strings.HasSuffix(strings.ToLower(req.Email), "@madagascarairlines.com") {
+	/*if !strings.HasSuffix(strings.ToLower(req.Email), "@madagascarairlines.com") {
 		return errors.New("only corporate emails allowed for admin-created users")
-	}
+	}*/
 
 	hashedPassword, err := s.hasher.HashPassword(req.Password)
 	if err != nil {

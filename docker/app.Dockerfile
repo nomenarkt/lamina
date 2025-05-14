@@ -15,4 +15,7 @@ RUN apt-get update && apt-get install -y bash
 
 RUN go build -o server ./cmd/server
 
+# Install golangci-lint
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
 CMD ["./server"]

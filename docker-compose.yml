@@ -12,7 +12,6 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgres_data:/var/lib/postgresql/data
     env_file:
       - .env
@@ -27,8 +26,6 @@ services:
     depends_on:
       - db
     restart: always
-    environment:
-      - JWT_SECRET=${JWT_SECRET}
     env_file:
       - .env
     volumes:

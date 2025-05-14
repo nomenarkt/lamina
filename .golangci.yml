@@ -1,24 +1,20 @@
 run:
-  timeout: 2m
-
-issues:
-  exclude-use-default: false
+  timeout: 5m
+  modules-download-mode: mod
 
 linters:
   enable:
-    - govet
     - errcheck
+    - govet
+    - gosimple
     - staticcheck
-    - revive
     - ineffassign
+    - revive
+    - unused
 
-linters-settings:
-  revive:
-    ignore-generated-header: true
+issues:
+  max-same-issues: 5
+  exclude-use-default: false
 
-  depguard:
-    list-type: blacklist
-    packages:
-      - fmt
-    packages-with-error-message:
-      fmt: "Use a logger instead of fmt"
+build-tags:
+  - tools

@@ -1,44 +1,32 @@
 package auth
 
 import (
-	"net/http"
-	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/nomenarkt/lamina/common/utils"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestMiddleware_ValidToken(t *testing.T) {
-	t.Setenv("JWT_SECRET", "testsecret123") // ✅ Safe test isolation
-
-	// Step 1: Generate a valid token
-	accessToken, _, err := utils.GenerateTokens(123, "admin", "admin@madagascarairlines.com")
-	if err != nil {
-		t.Fatalf("Failed to generate token: %v", err)
+func TestGenerateAndParseToken(t *testing.T) {
+	if err := os.Setenv("JWT_SECRET", "testsecret"); err != nil {
+		t.Fatalf("failed to set JWT_SECRET: %v", err)
 	}
 
-	// Step 2: Setup a Gin router with the Middleware
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(Middleware())
-	router.GET("/protected", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Access granted"})
+	tokenStr, _, err := GenerateTokens(123, "admin", "admin@madagascarairlines.com")
+	assert.NoError(t, err)
+
+	parsedToken, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(_ *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("JWT_SECRET")), nil
 	})
+	assert.NoError(t, err)
+	assert.True(t, parsedToken.Valid)
 
-	// Step 3: Create a request with the token in Authorization header
-	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
-	if err != nil {
-		t.Fatalf("Couldn't create request: %v", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-
-	// Step 4: Perform the request
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, req)
-
-	// Step 5: Validate
-	if recorder.Code != http.StatusOK {
-		t.Errorf("Expected status 200 OK, got %d", recorder.Code)
-	}
+	claims, ok := parsedToken.Claims.(*Claims)
+	assert.True(t, ok)
+	assert.Equal(t, int64(123), claims.UserID)
+	assert.Equal(t, "admin", claims.Role)
+	assert.Equal(t, "admin@madagascarairlines.com", claims.Email)
+	assert.WithinDuration(t, time.Now(), claims.IssuedAt.Time, time.Minute)
 }

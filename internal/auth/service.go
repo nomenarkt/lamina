@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nomenarkt/lamina/common/utils"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ServiceInterface defines the interface for Service business logic.
@@ -29,9 +29,9 @@ type Service struct {
 func NewService(r Repository) *Service {
 	return &Service{
 		repo:           r,
-		checkPassword:  utils.CheckPasswordHash,
-		hashPassword:   utils.HashPassword,
-		generateTokens: utils.GenerateTokens,
+		checkPassword:  CheckPasswordHash,
+		hashPassword:   HashPassword,
+		generateTokens: GenerateTokens,
 	}
 }
 
@@ -115,4 +115,15 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error)
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil
+}
+
+// HashPassword hashes a plaintext password using bcrypt.
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(bytes), err
+}
+
+// CheckPasswordHash compares a plaintext password to a bcrypt hash.
+func CheckPasswordHash(raw, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(raw))
 }
