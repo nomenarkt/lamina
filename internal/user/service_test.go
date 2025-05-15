@@ -44,14 +44,17 @@ func (m *MockUserRepo) FindAll(ctx context.Context) ([]User, error) {
 	return args.Get(0).([]User), args.Error(1)
 }
 
-func (m *MockUserRepo) UpdateFullName(ctx context.Context, userID int64, fullName string) error {
-	args := m.Called(ctx, userID, fullName)
-	return args.Error(0)
-}
-
 func (m *MockUserRepo) UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error {
 	args := m.Called(ctx, userID, fullName, companyID)
 	return args.Error(0)
+}
+
+func (m *MockUserRepo) MarkUserActive(_ context.Context, _ int64) error {
+	return nil
+}
+
+func (m *MockUserRepo) DeleteExpiredPendingUsers(_ context.Context) error {
+	return nil
 }
 
 func newMockedUserService() (*Service, *MockUserRepo) {

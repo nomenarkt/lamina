@@ -13,6 +13,7 @@ import (
 	"github.com/nomenarkt/lamina/internal/admin"
 	"github.com/nomenarkt/lamina/internal/auth"
 	"github.com/nomenarkt/lamina/internal/crew"
+	"github.com/nomenarkt/lamina/internal/tasks"
 	"github.com/nomenarkt/lamina/internal/user"
 )
 
@@ -45,6 +46,9 @@ func main() {
 		userService := user.NewUserService(userRepo)
 		userHandler := user.NewUserHandler(userService)
 		user.RegisterRoutes(api, userHandler)
+
+		// ✅ Start 24h cleanup background job
+		tasks.StartUserCleanupTask(userRepo)
 
 		adminRepo := admin.NewAdminRepository(db)
 		hasher := &utils.BcryptHasher{}

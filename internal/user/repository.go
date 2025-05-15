@@ -13,8 +13,9 @@ type Repo interface {
 	FindAll(ctx context.Context) ([]User, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	IsAdmin(ctx context.Context, id int64) (bool, error)
-	UpdateFullName(ctx context.Context, userID int64, fullName string) error
 	UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error
+	MarkUserActive(ctx context.Context, id int64) error
+	DeleteExpiredPendingUsers(ctx context.Context) error
 }
 
 // Repository implements the Repo interface using sqlx for DB interaction.
@@ -62,12 +63,6 @@ func (r *Repository) IsAdmin(ctx context.Context, id int64) (bool, error) {
 	return role == "admin", nil
 }
 
-// UpdateFullName changes the full name of the specified user.
-func (r *Repository) UpdateFullName(ctx context.Context, userID int64, fullName string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE users SET full_name = $1 WHERE id = $2`, fullName, userID)
-	return err
-}
-
 // UpdateUserProfile updates both the full name and optionally the company ID of a user.
 func (r *Repository) UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error {
 	query := `UPDATE users SET full_name = :full_name`
@@ -84,5 +79,21 @@ func (r *Repository) UpdateUserProfile(ctx context.Context, userID int64, fullNa
 	query += ` WHERE id = :user_id`
 
 	_, err := r.db.NamedExecContext(ctx, query, args)
+	return err
+}
+
+// MarkUserActive sets status = 'active' for a confirmed user.
+func (r *Repository) MarkUserActive(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET status = 'active' WHERE id = $1`, id)
+	return err
+}
+
+// DeleteExpiredPendingUsers removes pending users who didn't confirm within 24h.
+func (r *Repository) DeleteExpiredPendingUsers(ctx context.Context) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM users
+		WHERE status = 'pending'
+		  AND created_at < NOW() - interval '24 hours'
+	`)
 	return err
 }

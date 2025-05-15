@@ -48,5 +48,11 @@ func (s *Service) UpdateUserProfile(ctx context.Context, userID int64, req Updat
 		}
 	}
 
+	if user.Status == "pending" {
+		if err := s.repo.MarkUserActive(ctx, userID); err != nil {
+			return err
+		}
+	}
+
 	return s.repo.UpdateUserProfile(ctx, userID, req.FullName, companyID)
 }
