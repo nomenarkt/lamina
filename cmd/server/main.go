@@ -31,6 +31,9 @@ func main() {
 		}
 	}()
 
+	gin.ForceConsoleColor()
+	gin.SetMode(gin.DebugMode)
+
 	router := gin.Default()
 	api := router.Group("/api/v1")
 

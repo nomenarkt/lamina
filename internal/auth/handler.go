@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -30,4 +31,20 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 		}
 		c.JSON(http.StatusOK, tokens)
 	})
+
+	router.GET("/auth/confirm/:token", func(c *gin.Context) {
+		token := c.Param("token")
+		err := service.(*Service).ConfirmRegistration(c.Request.Context(), token)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		frontendURL := os.Getenv("FRONTEND_URL")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:5173"
+		}
+		c.Redirect(http.StatusTemporaryRedirect, frontendURL+"/login")
+	})
+
 }

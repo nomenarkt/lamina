@@ -30,6 +30,21 @@ func (m *MockAuthRepo) FindByEmail(ctx context.Context, email string) (user.User
 	return args.Get(0).(user.User), args.Error(1)
 }
 
+func (m *MockAuthRepo) FindByConfirmationToken(ctx context.Context, token string) (user.User, error) {
+	args := m.Called(ctx, token)
+	return args.Get(0).(user.User), args.Error(1)
+}
+
+func (m *MockAuthRepo) MarkUserConfirmed(ctx context.Context, id int64) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockAuthRepo) SetConfirmationToken(ctx context.Context, userID int64, token string) error {
+	args := m.Called(ctx, userID, token)
+	return args.Error(0)
+}
+
 func TestLogin_Success(t *testing.T) {
 	repo := new(MockAuthRepo)
 	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "any"}
@@ -107,6 +122,7 @@ func TestSignupUser_Success(t *testing.T) {
 
 	repo.On("IsEmailExists", email).Return(false, nil)
 	repo.On("CreateUser", mock.Anything, 0, email, "hashed123").Return(int64(42), nil)
+	repo.On("SetConfirmationToken", mock.Anything, int64(42), mock.AnythingOfType("string")).Return(nil)
 
 	service := &Service{
 		repo: repo,
@@ -182,6 +198,8 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	email := "user@madagascarairlines.com"
 	repo.On("IsEmailExists", email).Return(false, nil)
 	repo.On("CreateUser", mock.Anything, 0, email, "hashedok").Return(int64(99), nil)
+	repo.On("SetConfirmationToken", mock.Anything, int64(99), mock.AnythingOfType("string")).
+		Return(errors.New("mock token failure"))
 
 	service := &Service{
 		repo: repo,
@@ -199,7 +217,7 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Equal(t, "failed to generate tokens", err.Error())
+	assert.Equal(t, "failed to store confirmation token", err.Error())
 }
 
 func TestSignupUser_InvalidDomain(t *testing.T) {

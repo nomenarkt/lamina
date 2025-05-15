@@ -13,6 +13,9 @@ type Repository interface {
 	IsEmailExists(email string) (bool, error)
 	CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error)
 	FindByEmail(ctx context.Context, email string) (user.User, error)
+	FindByConfirmationToken(ctx context.Context, token string) (user.User, error)
+	MarkUserConfirmed(ctx context.Context, id int64) error
+	SetConfirmationToken(ctx context.Context, userID int64, token string) error
 }
 
 // repositoryImpl handles database operations for user authentication.
@@ -52,4 +55,29 @@ func (r *repositoryImpl) IsEmailExists(email string) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *repositoryImpl) FindByConfirmationToken(ctx context.Context, token string) (user.User, error) {
+	var u user.User
+	err := r.db.GetContext(ctx, &u, `
+		SELECT id, email, status, created_at FROM users
+		WHERE confirmation_token = $1
+	`, token)
+	return u, err
+}
+
+func (r *repositoryImpl) MarkUserConfirmed(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET status = 'active', confirmation_token = NULL
+		WHERE id = $1
+	`, id)
+	return err
+}
+
+func (r *repositoryImpl) SetConfirmationToken(ctx context.Context, userID int64, token string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users SET confirmation_token = $1 WHERE id = $2
+	`, token, userID)
+	return err
 }

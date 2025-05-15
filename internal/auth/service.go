@@ -5,8 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nomenarkt/lamina/common/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -57,6 +59,17 @@ func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, 
 	userID, err := s.repo.CreateUser(ctx, 0, req.Email, hashedPassword)
 	if err != nil {
 		return Response{}, errors.New("failed to create user")
+	}
+
+	token, err := utils.GenerateSecureToken(32)
+	if err != nil {
+		return Response{}, errors.New("failed to generate confirmation token")
+	}
+	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
+		return Response{}, errors.New("failed to store confirmation token")
+	}
+	if err := SendConfirmationEmail(req.Email, token); err != nil {
+		return Response{}, errors.New("failed to send confirmation email")
 	}
 
 	access, refresh, err := s.generateTokens(userID, req.Email, "user")
@@ -126,4 +139,19 @@ func HashPassword(password string) (string, error) {
 // CheckPasswordHash compares a plaintext password to a bcrypt hash.
 func CheckPasswordHash(raw, hash string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(raw))
+}
+
+// ConfirmRegistration validates and finalizes email confirmation via token.
+func (s *Service) ConfirmRegistration(ctx context.Context, token string) error {
+	user, err := s.repo.FindByConfirmationToken(ctx, token)
+	if err != nil {
+		return errors.New("invalid or expired confirmation token")
+	}
+	if user.Status != "pending" {
+		return errors.New("user already confirmed")
+	}
+	if time.Since(user.CreatedAt) > 24*time.Hour {
+		return errors.New("confirmation token expired")
+	}
+	return s.repo.MarkUserConfirmed(ctx, user.ID)
 }
