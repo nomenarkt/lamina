@@ -1,6 +1,6 @@
 # Lamina
 
-Lamina is a modern SaaS platform scaffolded in Go, using clean architecture principles, dependency injection, and full TDD.
+📚 Lamina is a modular, scalable SaaS designed for aviation and logistics companies to manage flight crew scheduling and transport operations efficiently.
 
 ## 🚀 Features
 
@@ -112,3 +112,55 @@ docker-compose up app
 ## 📄 License
 
 MIT — use this scaffold for commercial or personal SaaS projects.
+
+---
+
+## MVP Feature Summary
+
+- [x] Self and admin-based user creation
+- [x] JWT-secured login & authorization
+- [x] Role-based access middleware
+- [x] Admin-only user creation endpoint
+- [x] User profile update (role-dependent)
+- [x] Mock-based unit testing with coverage
+- [x] GitHub Actions CI + Codecov integration
+
+## System Architecture Overview
+
+Lamina follows a modular architecture:
+- **Auth Module**: Handles JWT-based authentication and role enforcement.
+- **Admin Module**: Admin-only operations such as secure user creation.
+- **User Module**: Profile update endpoint with role-aware field control.
+- **Middleware Layer**: Validates JWT, injects claims, and enforces role restrictions.
+- **PostgreSQL Database**: Persistent store for users and other resources.
+- **CI/CD**: GitHub Actions pipelines, linting, and test coverage via Codecov.
+
+```text
++-------------+       +------------------+
+|  Client     | <---> |  Gin HTTP Server |
++-------------+       +------------------+
+                            |  (Routes)
+                            v
+                   +---------------------+
+                   | Middleware (JWT)    |
+                   +---------------------+
+                            |
+                            v
+                  +----------------------+
+                  | Domain Services      |
+                  | (Admin/User/Auth)    |
+                  +----------------------+
+                            |
+                            v
+                   +---------------------+
+                   | PostgreSQL (sqlx)   |
+                   +---------------------+
+```
+
+## Engineering Philosophy
+
+Lamina is built using Clean Architecture, TDD principles, and a modular Go layout optimized for scaling in regulated industries like aviation and logistics. Security, maintainability, and low operational overhead are prioritized throughout the codebase.
+
+## 📎 License
+
+© 2025 Nomenarkt. All rights reserved.
