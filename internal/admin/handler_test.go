@@ -1,7 +1,6 @@
-package admin_test
+package admin
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,32 +8,13 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nomenarkt/lamina/internal/admin"
 	"github.com/nomenarkt/lamina/internal/middleware"
 	"github.com/nomenarkt/lamina/internal/user"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-type MockAdminRepo struct {
-	mock.Mock
-}
-
-func (m *MockAdminRepo) CreateUser(ctx context.Context, u *user.User) error {
-	args := m.Called(ctx, u)
-	return args.Error(0)
-}
-
-type MockHasher struct {
-	mock.Mock
-}
-
-func (m *MockHasher) HashPassword(p string) (string, error) {
-	args := m.Called(p)
-	return args.String(0), args.Error(1)
-}
-
-func setupRouterWithService(service *admin.Service) *gin.Engine {
+func setupRouterWithService(service *Service) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
@@ -54,7 +34,7 @@ func setupRouterWithService(service *admin.Service) *gin.Engine {
 			return
 		}
 
-		var req admin.CreateUserRequest
+		var req CreateUserRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input format"})
 			return
@@ -73,11 +53,9 @@ func setupRouterWithService(service *admin.Service) *gin.Engine {
 }
 
 func TestCreateUser_Unauthorized(t *testing.T) {
-	if err := os.Setenv("JWT_SECRET", "mytestsecret"); err != nil {
-		t.Fatalf("failed to set env: %v", err)
-	}
+	_ = os.Setenv("JWT_SECRET", "mytestsecret")
 
-	service := admin.NewAdminService(&MockAdminRepo{}, &MockHasher{})
+	service := NewAdminService(new(MockAdminRepo), new(MockHasher))
 	router := setupRouterWithService(service)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/create-user", nil)
@@ -88,11 +66,9 @@ func TestCreateUser_Unauthorized(t *testing.T) {
 }
 
 func TestCreateUser_ForbiddenForViewer(t *testing.T) {
-	if err := os.Setenv("JWT_SECRET", "mytestsecret"); err != nil {
-		t.Fatalf("failed to set env: %v", err)
-	}
+	_ = os.Setenv("JWT_SECRET", "mytestsecret")
 
-	service := admin.NewAdminService(&MockAdminRepo{}, &MockHasher{})
+	service := NewAdminService(new(MockAdminRepo), new(MockHasher))
 	router := setupRouterWithService(service)
 
 	token, _ := middleware.GenerateJWT("mytestsecret", 1234, "viewer@madagascarairlines.com", "viewer")
@@ -106,14 +82,11 @@ func TestCreateUser_ForbiddenForViewer(t *testing.T) {
 }
 
 func TestCreateUser_Success_WithAdminRole(t *testing.T) {
-	if err := os.Setenv("JWT_SECRET", "mytestsecret"); err != nil {
-		t.Fatalf("failed to set env: %v", err)
-	}
+	_ = os.Setenv("JWT_SECRET", "mytestsecret")
 
 	mockRepo := new(MockAdminRepo)
 	mockHasher := new(MockHasher)
 
-	// Setup mocks
 	hashed := "hashed123"
 	mockHasher.On("HashPassword", "secure1234").Return(hashed, nil)
 	mockRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
@@ -123,15 +96,15 @@ func TestCreateUser_Success_WithAdminRole(t *testing.T) {
 			u.Role == ""
 	})).Return(nil)
 
-	service := admin.NewAdminService(mockRepo, mockHasher)
+	service := NewAdminService(mockRepo, mockHasher)
 	router := setupRouterWithService(service)
 
 	token, _ := middleware.GenerateJWT("mytestsecret", 1, "admin@madagascarairlines.com", "admin")
 
 	payload := `{
-  		"email": "successcase@madagascarairlines.com",
-  		"password": "secure1234",
-  		"confirm_password": "secure1234"
+		"email": "successcase@madagascarairlines.com",
+		"password": "secure1234",
+		"confirm_password": "secure1234"
 	}`
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/create-user", strings.NewReader(payload))

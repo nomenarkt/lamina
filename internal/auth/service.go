@@ -31,7 +31,7 @@ func NewService(r Repository) *Service {
 		repo:           r,
 		checkPassword:  CheckPasswordHash,
 		hashPassword:   HashPassword,
-		generateTokens: GenerateTokens,
+		generateTokens: GenerateTokensFromEnv,
 	}
 }
 

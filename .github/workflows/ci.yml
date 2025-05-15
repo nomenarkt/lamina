@@ -35,7 +35,9 @@ jobs:
           go tool cover -func=coverage.out
 
       - name: Upload coverage to Codecov
-        if: env.CODECOV_TOKEN != ''
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        if: ${{ env.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v3
         with:
           files: coverage.out

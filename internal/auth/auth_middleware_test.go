@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -10,15 +9,17 @@ import (
 )
 
 func TestGenerateAndParseToken(t *testing.T) {
-	if err := os.Setenv("JWT_SECRET", "testsecret"); err != nil {
-		t.Fatalf("failed to set JWT_SECRET: %v", err)
-	}
+	secret := "testsecret"
+	t.Setenv("JWT_SECRET", secret)
 
-	tokenStr, _, err := GenerateTokens(123, "admin", "admin@madagascarairlines.com")
+	accessToken, _, err := GenerateTokens("testsecret", "testrefresh", 123, "admin@madagascarairlines.com", "admin")
 	assert.NoError(t, err)
 
-	parsedToken, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(_ *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
+	parsedToken, err := jwt.ParseWithClaims(accessToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrTokenSignatureInvalid
+		}
+		return []byte(secret), nil
 	})
 	assert.NoError(t, err)
 	assert.True(t, parsedToken.Valid)
@@ -26,7 +27,7 @@ func TestGenerateAndParseToken(t *testing.T) {
 	claims, ok := parsedToken.Claims.(*Claims)
 	assert.True(t, ok)
 	assert.Equal(t, int64(123), claims.UserID)
-	assert.Equal(t, "admin", claims.Role)
 	assert.Equal(t, "admin@madagascarairlines.com", claims.Email)
+	assert.Equal(t, "admin", claims.Role)
 	assert.WithinDuration(t, time.Now(), claims.IssuedAt.Time, time.Minute)
 }

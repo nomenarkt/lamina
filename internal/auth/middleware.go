@@ -66,7 +66,7 @@ func Middleware() gin.HandlerFunc {
 
 		log.Printf("[JWT DEBUG] Token Claims: userID=%d, email=%s, role=%s\n", claims.UserID, claims.Email, claims.Role)
 
-		if err != nil || !token.Valid {
+		if !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
 			return

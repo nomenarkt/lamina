@@ -10,77 +10,68 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockAdminRepo struct {
-	mock.Mock
-}
-
-func (m *MockAdminRepo) CreateUser(ctx context.Context, u *user.User) error {
-	args := m.Called(ctx, u)
-	return args.Error(0)
-}
-
-type MockHasher struct {
-	mock.Mock
-}
-
-func (m *MockHasher) HashPassword(password string) (string, error) {
-	args := m.Called(password)
-	return args.String(0), args.Error(1)
-}
-
 func TestCreateUser_Success(t *testing.T) {
-	repo := new(MockAdminRepo)
-	hasher := new(MockHasher)
-	service := NewAdminService(repo, hasher)
+	mockRepo := new(MockAdminRepo)
+	mockHasher := new(MockHasher)
+	service := NewAdminService(mockRepo, mockHasher)
 
 	req := CreateUserRequest{
 		Email:    "user@madagascarairlines.com",
 		Password: "securepass",
 	}
 
-	hashedPassword := "hashedpassword"
+	hashed := "hashedpassword"
 
-	hasher.On("HashPassword", req.Password).Return(hashedPassword, nil)
-	repo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
-		return u.Email == "user@madagascarairlines.com" &&
-			u.PasswordHash == "hashedpassword"
+	mockHasher.On("HashPassword", req.Password).Return(hashed, nil)
+	mockRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
+		return u.Email == req.Email && u.PasswordHash == hashed
 	})).Return(nil)
 
 	err := service.CreateUser(context.Background(), req, "admin")
 	assert.NoError(t, err)
+
+	mockHasher.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
 }
 
 func TestCreateUser_HashFailure(t *testing.T) {
-	repo := new(MockAdminRepo)
-	hasher := new(MockHasher)
-	service := NewAdminService(repo, hasher)
+	mockRepo := new(MockAdminRepo)
+	mockHasher := new(MockHasher)
+	service := NewAdminService(mockRepo, mockHasher)
 
 	req := CreateUserRequest{
 		Email:    "user@madagascarairlines.com",
 		Password: "securepass",
 	}
 
-	hasher.On("HashPassword", req.Password).Return("", errors.New("hash error"))
+	mockHasher.On("HashPassword", req.Password).Return("", errors.New("hash error"))
 
 	err := service.CreateUser(context.Background(), req, "admin")
 	assert.EqualError(t, err, "hash error")
+
+	mockHasher.AssertExpectations(t)
+	mockRepo.AssertExpectations(t) // still called, though may be unused
 }
 
 func TestCreateUser_DBInsertFailure(t *testing.T) {
-	repo := new(MockAdminRepo)
-	hasher := new(MockHasher)
-	service := NewAdminService(repo, hasher)
+	mockRepo := new(MockAdminRepo)
+	mockHasher := new(MockHasher)
+	service := NewAdminService(mockRepo, mockHasher)
 
 	req := CreateUserRequest{
 		Email:    "user@madagascarairlines.com",
 		Password: "securepass",
 	}
 
-	hashedPassword := "hashedpassword"
+	hashed := "hashedpassword"
 
-	hasher.On("HashPassword", req.Password).Return(hashedPassword, nil)
-	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*user.User")).Return(errors.New("insert failed"))
+	mockHasher.On("HashPassword", req.Password).Return(hashed, nil)
+	mockRepo.On("CreateUser", mock.Anything, mock.AnythingOfType("*user.User")).
+		Return(errors.New("insert failed"))
 
 	err := service.CreateUser(context.Background(), req, "admin")
 	assert.EqualError(t, err, "insert failed")
+
+	mockHasher.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
 }

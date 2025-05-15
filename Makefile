@@ -40,3 +40,8 @@ dev-up: down rebuild
 lint:
 	@echo "==> Running linters..."
 	golangci-lint run ./...
+
+.PHONY: test
+test:
+	@echo "==> Running unit tests..."
+	go test ./... -v -cover -race
