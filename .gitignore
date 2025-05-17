@@ -1,0 +1,36 @@
+# Binaries
+/server
+/bin/
+*.test
+
+# Build outputs
+/build/
+coverage.out
+
+# Dependency directories
+/vendor/
+
+# Docker volumes (if used)
+pgdata/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Dev & temp
+*.log
+*.tmp
+*.bak
+test-*.go
+
