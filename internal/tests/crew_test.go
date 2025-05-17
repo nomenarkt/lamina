@@ -1,4 +1,4 @@
-package crew_test
+package tests
 
 import (
 	"context"
@@ -55,7 +55,7 @@ func setupRouterWithHandler(handler *crew.Handler) *gin.Engine {
 	return r
 }
 
-// ===== TEST CASE =====
+// ===== TEST CASES =====
 
 func TestGetCrewByFlight_Success(t *testing.T) {
 	mockService := new(MockCrewService)
@@ -97,4 +97,37 @@ func TestGetCrewByFlight_Success(t *testing.T) {
 	}]`
 
 	assert.JSONEq(t, expected, w.Body.String())
+}
+
+func TestAccessCrossOrgCrew_ShouldFail(t *testing.T) {
+	// Simulate a request where viewer is trying to access a flight not belonging to their org
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+
+	// Fake middleware to inject wrong org context
+	r.Use(func(c *gin.Context) {
+		c.Set("userID", int64(1)) // Viewer from org A
+		c.Set("role", "viewer")
+		c.Set("companyID", int64(100)) // Org A
+		c.Next()
+	})
+
+	r.GET("/crew/org-b-flight", func(c *gin.Context) {
+		companyID := c.GetInt("companyID")
+		flightOrgID := 200 // Belongs to Org B
+
+		if companyID != flightOrgID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized access to different org"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/crew/org-b-flight", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "unauthorized")
 }

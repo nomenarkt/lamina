@@ -44,4 +44,5 @@ lint:
 .PHONY: test
 test:
 	@echo "==> Running unit tests..."
-	go test ./... -v -cover -race
+	go test ./... -v -cover -race -coverprofile=coverage.out
+	go tool cover -func=coverage.out

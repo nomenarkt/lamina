@@ -10,6 +10,26 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// MockAdminRepo is a mock implementation of the AdminRepo interface.
+type MockAdminRepo struct {
+	mock.Mock
+}
+
+// MockHasher is a mock implementation of the Hasher interface.
+type MockHasher struct {
+	mock.Mock
+}
+
+func (m *MockHasher) HashPassword(password string) (string, error) {
+	args := m.Called(password)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockAdminRepo) CreateUser(ctx context.Context, u *user.User) error {
+	args := m.Called(ctx, u)
+	return args.Error(0)
+}
+
 func TestCreateUser_Success(t *testing.T) {
 	mockRepo := new(MockAdminRepo)
 	mockHasher := new(MockHasher)

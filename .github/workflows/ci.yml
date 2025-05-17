@@ -30,9 +30,7 @@ jobs:
           git diff --exit-code go.mod go.sum
 
       - name: Run unit tests with coverage
-        run: |
-          go test ./... -v -coverprofile=coverage.out
-          go tool cover -func=coverage.out
+        run: make test
 
       - name: Upload coverage to Codecov
         env:
