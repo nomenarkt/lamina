@@ -1,48 +1,38 @@
-SHELL := /bin/bash
-.DEFAULT_GOAL := dev-up
+MAKEFLAGS += --no-print-directory
 
-ENV_FILE := .env
+BACKEND_DIR := backend
+FRONTEND_DIR := frontend-admin
 
-# Load env vars if .env exists
-ifneq ("$(wildcard $(ENV_FILE))","")
-	include $(ENV_FILE)
-	export
-endif
+# === Backend Commands ===
 
-.PHONY: down rebuild migrate dev-up
-
-## Stop and clean up all containers and volumes
+.PHONY: down rebuild dev-up test lint
 down:
-	@echo "==> Shutting down and removing all containers, networks, and volumes..."
-	docker-compose down -v --remove-orphans
+	$(MAKE) -C $(BACKEND_DIR) down
 
-## Rebuild all images from scratch
 rebuild:
-	@echo "==> Building images from scratch..."
-	docker-compose build --no-cache
+	$(MAKE) -C $(BACKEND_DIR) rebuild
 
-## Run database migrations via the docker-compose-defined migrate service
-migrate:
-	@echo "==> Running migrations..."
-	docker-compose up migrate
+dev-up:
+	$(MAKE) -C $(BACKEND_DIR) dev-up
 
-## Start up DB, run migrations, then launch the app
-dev-up: down rebuild
-	@echo "==> Starting database..."
-	docker-compose up -d db
-	@echo "==> Waiting for DB to be ready..."
-	sleep 5
-	@$(MAKE) migrate
-	@echo "==> Starting app..."
-	docker-compose up app
-
-.PHONY: lint
-lint:
-	@echo "==> Running linters..."
-	golangci-lint run ./...
-
-.PHONY: test
 test:
-	@echo "==> Running unit tests..."
-	go test ./... -v -cover -race -coverprofile=coverage.out
-	go tool cover -func=coverage.out
+	$(MAKE) -C $(BACKEND_DIR) test
+
+lint:
+	$(MAKE) -C $(BACKEND_DIR) lint
+
+# === Frontend Commands ===
+
+.PHONY: frontend-dev frontend-install frontend-lint frontend-build
+
+frontend-install:
+	cd $(FRONTEND_DIR) && npm install
+
+frontend-dev:
+	cd $(FRONTEND_DIR) && npm run dev
+
+frontend-lint:
+	cd $(FRONTEND_DIR) && npm run lint
+
+frontend-build:
+	cd $(FRONTEND_DIR) && npm run build

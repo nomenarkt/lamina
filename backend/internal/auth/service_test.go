@@ -47,7 +47,7 @@ func (m *MockAuthRepo) SetConfirmationToken(ctx context.Context, userID int64, t
 
 func TestLogin_Success(t *testing.T) {
 	repo := new(MockAuthRepo)
-	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "any"}
+	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "any", Status: "active"}
 	repo.On("FindByEmail", mock.Anything, "test@example.com").Return(u, nil)
 
 	service := &Service{
@@ -73,7 +73,7 @@ func TestLogin_Success(t *testing.T) {
 
 func TestLogin_InvalidPassword(t *testing.T) {
 	repo := new(MockAuthRepo)
-	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "wrong"}
+	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "wrong", Status: "active"}
 	repo.On("FindByEmail", mock.Anything, "test@example.com").Return(u, nil)
 
 	service := &Service{
@@ -113,7 +113,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	assert.Equal(t, "invalid email or password", err.Error())
 }
 
 func TestSignupUser_Success(t *testing.T) {

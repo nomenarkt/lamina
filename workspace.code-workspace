@@ -1,0 +1,21 @@
+{
+  "folders": [
+    { "path": "." }
+  ],
+  "settings": {
+    "go.goroot": "/usr/local/go",
+    "go.alternateTools": {
+      "go": "/usr/local/go/bin/go"
+    },
+    "go.toolsEnvVars": {
+      "GO111MODULE": "on"
+    },
+    "go.useLanguageServer": true,
+    "go.toolsManagement.autoUpdate": true,
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": ["--fast"],
+    "go.buildOnSave": "package",
+    "go.testOnSave": true,
+    "go.vetOnSave": "package"
+  }
+}

@@ -112,7 +112,11 @@ func (s *Service) Signup(c *gin.Context) {
 func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error) {
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
-		return Response{}, err
+		return Response{}, errors.New("invalid email or password")
+	}
+
+	if user.Status != "active" {
+		return Response{}, errors.New("account not confirmed")
 	}
 
 	if err := s.checkPassword(req.Password, user.PasswordHash); err != nil {

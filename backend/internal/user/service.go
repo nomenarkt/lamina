@@ -3,6 +3,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -39,18 +40,17 @@ func (s *Service) UpdateUserProfile(ctx context.Context, userID int64, req Updat
 		return err
 	}
 
+	// ⛔ Add this guard clause:
+	if user.Status != "active" {
+		return errors.New("account not confirmed")
+	}
+
 	var companyID *int
 
 	// Only allow setting companyID if user is internal
 	if strings.HasSuffix(strings.ToLower(user.Email), "@madagascarairlines.com") {
 		if req.CompanyID != nil {
 			companyID = req.CompanyID
-		}
-	}
-
-	if user.Status == "pending" {
-		if err := s.repo.MarkUserActive(ctx, userID); err != nil {
-			return err
 		}
 	}
 

@@ -11,6 +11,10 @@ jobs:
     name: Build, Lint & Test on Go 1.24.1
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: backend
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -46,7 +50,7 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.64.8
 
       - name: Add golangci-lint to PATH
-        run: echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+        run: echo "${{ github.workspace }}/backend/bin" >> $GITHUB_PATH
 
       - name: Run linter (via Makefile)
         run: make lint
