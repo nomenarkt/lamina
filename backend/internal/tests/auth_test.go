@@ -34,6 +34,16 @@ func (m *MockAuthService) Login(ctx context.Context, req auth.LoginRequest) (aut
 	return args.Get(0).(auth.Response), args.Error(1)
 }
 
+func (m *MockAuthService) CompleteInvite(ctx context.Context, token string, password string) (auth.Response, error) {
+	args := m.Called(ctx, token, password)
+	return args.Get(0).(auth.Response), args.Error(1)
+}
+
+func (m *MockAuthService) ConfirmRegistration(ctx context.Context, token string) error {
+	args := m.Called(ctx, token)
+	return args.Error(0)
+}
+
 func setupRouterWithMock(t *testing.T, service auth.ServiceInterface) *gin.Engine {
 	t.Helper()
 

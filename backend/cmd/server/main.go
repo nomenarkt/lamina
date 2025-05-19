@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
 	"github.com/nomenarkt/lamina/common/database"
 	"github.com/nomenarkt/lamina/common/utils"
 	"github.com/nomenarkt/lamina/config"
@@ -23,8 +26,6 @@ func main() {
 	config.LoadEnv()
 
 	db := database.ConnectDB()
-
-	// ✅ Properly check error on closing DB
 	defer func() {
 		if err := db.Close(); err != nil {
 			log.Printf("failed to close database: %v", err)
@@ -35,6 +36,17 @@ func main() {
 	gin.SetMode(gin.DebugMode)
 
 	router := gin.Default()
+
+	// ✅ CORS middleware (adjust AllowOrigins in production!)
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	api := router.Group("/api/v1")
 
 	// Public routes
@@ -50,7 +62,6 @@ func main() {
 		userHandler := user.NewUserHandler(userService)
 		user.RegisterRoutes(api, userHandler)
 
-		// ✅ Start 24h cleanup background job
 		tasks.StartUserCleanupTask(userRepo)
 
 		adminRepo := admin.NewAdminRepository(db)
@@ -72,7 +83,6 @@ func main() {
 	}
 	log.Printf("Starting server on port %s", port)
 
-	// ✅ Properly check error when running router
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}

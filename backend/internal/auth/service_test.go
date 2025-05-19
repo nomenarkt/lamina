@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/nomenarkt/lamina/internal/user"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +23,11 @@ func (m *MockAuthRepo) IsEmailExists(email string) (bool, error) {
 
 func (m *MockAuthRepo) CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error) {
 	args := m.Called(ctx, companyID, email, hash)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockAuthRepo) CreateUserWithType(ctx context.Context, companyID int, email, hash, userType string) (int64, error) {
+	args := m.Called(ctx, companyID, email, hash, userType)
 	return args.Get(0).(int64), args.Error(1)
 }
 
@@ -45,6 +51,11 @@ func (m *MockAuthRepo) SetConfirmationToken(ctx context.Context, userID int64, t
 	return args.Error(0)
 }
 
+func (m *MockAuthRepo) UpdatePasswordAndActivate(ctx context.Context, userID int64, hashed string) error {
+	args := m.Called(ctx, userID, hashed)
+	return args.Error(0)
+}
+
 func TestLogin_Success(t *testing.T) {
 	repo := new(MockAuthRepo)
 	u := user.User{ID: 1, Email: "test@example.com", PasswordHash: "any", Status: "active"}
@@ -56,7 +67,7 @@ func TestLogin_Success(t *testing.T) {
 			fmt.Println("✅ checkPassword mock called")
 			return nil
 		},
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
+		generateTokens: func(_ user.User) (string, string, error) {
 			return "access-token", "refresh-token", nil
 		},
 	}
@@ -81,7 +92,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 		checkPassword: func(_, _ string) error {
 			return errors.New("invalid")
 		},
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
+		generateTokens: func(_ user.User) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -102,8 +113,8 @@ func TestLogin_UserNotFound(t *testing.T) {
 	service := &Service{
 		repo:          repo,
 		checkPassword: func(_, _ string) error { return nil },
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
-			return "", "", nil
+		generateTokens: func(_ user.User) (string, string, error) {
+			return "token", "refresh", nil
 		},
 	}
 
@@ -121,7 +132,7 @@ func TestSignupUser_Success(t *testing.T) {
 	email := "user@madagascarairlines.com"
 
 	repo.On("IsEmailExists", email).Return(false, nil)
-	repo.On("CreateUser", mock.Anything, 0, email, "hashed123").Return(int64(42), nil)
+	repo.On("CreateUserWithType", mock.Anything, 0, email, "hashed123", "internal").Return(int64(42), nil)
 	repo.On("SetConfirmationToken", mock.Anything, int64(42), mock.AnythingOfType("string")).Return(nil)
 
 	service := &Service{
@@ -129,7 +140,7 @@ func TestSignupUser_Success(t *testing.T) {
 		hashPassword: func(_ string) (string, error) {
 			return "hashed123", nil
 		},
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
+		generateTokens: func(_ user.User) (string, string, error) {
 			return "access-token", "refresh-token", nil
 		},
 	}
@@ -155,7 +166,7 @@ func TestSignupUser_EmailExists(t *testing.T) {
 		hashPassword: func(_ string) (string, error) {
 			return "ignored", nil
 		},
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
+		generateTokens: func(_ user.User) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -179,7 +190,7 @@ func TestSignupUser_HashFailure(t *testing.T) {
 		hashPassword: func(_ string) (string, error) {
 			return "", errors.New("hash failed")
 		},
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
+		generateTokens: func(_ user.User) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -197,7 +208,7 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	repo := new(MockAuthRepo)
 	email := "user@madagascarairlines.com"
 	repo.On("IsEmailExists", email).Return(false, nil)
-	repo.On("CreateUser", mock.Anything, 0, email, "hashedok").Return(int64(99), nil)
+	repo.On("CreateUserWithType", mock.Anything, 0, email, "hashedok", "internal").Return(int64(99), nil)
 	repo.On("SetConfirmationToken", mock.Anything, int64(99), mock.AnythingOfType("string")).
 		Return(errors.New("mock token failure"))
 
@@ -206,7 +217,7 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 		hashPassword: func(_ string) (string, error) {
 			return "hashedok", nil
 		},
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
+		generateTokens: func(_ user.User) (string, string, error) {
 			return "", "", errors.New("token failed")
 		},
 	}
@@ -231,7 +242,7 @@ func TestSignupUser_InvalidDomain(t *testing.T) {
 		hashPassword: func(_ string) (string, error) {
 			return "irrelevant", nil
 		},
-		generateTokens: func(_ int64, _, _ string) (string, string, error) {
+		generateTokens: func(_ user.User) (string, string, error) {
 			return "", "", nil
 		},
 	}
@@ -243,4 +254,52 @@ func TestSignupUser_InvalidDomain(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, "only @madagascarairlines.com emails are allowed", err.Error())
+}
+
+func TestCompleteInvite_Success(t *testing.T) {
+	repo := new(MockAuthRepo)
+	userID := int64(77)
+	token := "valid-token"
+	password := "newpass"
+	hashed := "hashedpass"
+
+	testUser := user.User{
+		ID:        userID,
+		Email:     "invitee@example.com",
+		Status:    "pending",
+		CreatedAt: time.Now(),
+	}
+
+	repo.On("FindByConfirmationToken", mock.Anything, token).Return(testUser, nil)
+	repo.On("UpdatePasswordAndActivate", mock.Anything, userID, hashed).Return(nil)
+
+	service := &Service{
+		repo: repo,
+		hashPassword: func(_ string) (string, error) {
+			return hashed, nil
+		},
+		generateTokens: func(_ user.User) (string, string, error) {
+			return "access-token", "refresh-token", nil
+		},
+	}
+
+	resp, err := service.CompleteInvite(context.Background(), token, password)
+	assert.NoError(t, err)
+	assert.Equal(t, "access-token", resp.AccessToken)
+	assert.Equal(t, "refresh-token", resp.RefreshToken)
+}
+
+func TestConfirmRegistration_Success(t *testing.T) {
+	repo := new(MockAuthRepo)
+	repo.On("FindByConfirmationToken", mock.Anything, "valid-token").Return(user.User{
+		ID:        1,
+		Status:    "pending",
+		CreatedAt: time.Now().Add(-1 * time.Hour),
+	}, nil)
+	repo.On("MarkUserConfirmed", mock.Anything, int64(1)).Return(nil)
+
+	service := &Service{repo: repo}
+
+	err := service.ConfirmRegistration(context.Background(), "valid-token")
+	assert.NoError(t, err)
 }

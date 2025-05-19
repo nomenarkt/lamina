@@ -5,41 +5,44 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/nomenarkt/lamina/internal/user"
 )
 
-// Claims represents JWT claims used by the application.
+// Claims = JWT payload returned to frontend.
 type Claims struct {
-	UserID int64  `json:"user_id"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID      int64                   `json:"userID"`
+	Email       string                  `json:"email"`
+	Departments []user.DepartmentAccess `json:"departments"`
+	Modules     []string                `json:"modules"`
+	Role        string                  `json:"role"`
 	jwt.RegisteredClaims
 }
 
-// GenerateTokens signs new JWT tokens using the provided secret values.
-func GenerateTokens(secret string, refreshSecret string, userID int64, email string, role string) (accessToken string, refreshToken string, err error) {
+// GenerateTokens returns access + refresh tokens for a user.
+func GenerateTokens(secret, refreshSecret string, u user.User) (string, string, error) {
 	claims := Claims{
-		UserID: userID,
-		Email:  email,
-		Role:   role,
+		UserID:      u.ID,
+		Email:       u.Email,
+		Departments: u.Departments,
+		Modules:     u.Modules,
+		Role:        u.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), //Add(24 * time.Hour))
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	accessToken, err = token.SignedString([]byte(secret))
+	accessToken, err := token.SignedString([]byte(secret))
 	if err != nil {
 		return "", "", err
 	}
 
-	refreshClaims := jwt.RegisteredClaims{
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
-	}
-
-	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshToken, err = refresh.SignedString([]byte(refreshSecret))
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+	})
+	refreshToken, err := refresh.SignedString([]byte(refreshSecret))
 	if err != nil {
 		return "", "", err
 	}
@@ -47,9 +50,7 @@ func GenerateTokens(secret string, refreshSecret string, userID int64, email str
 	return accessToken, refreshToken, nil
 }
 
-// GenerateTokensFromEnv is used in production to pull secrets from environment variables.
-func GenerateTokensFromEnv(userID int64, email string, role string) (string, string, error) {
-	secret := os.Getenv("JWT_SECRET")
-	refresh := os.Getenv("JWT_REFRESH_SECRET")
-	return GenerateTokens(secret, refresh, userID, email, role)
+// GenerateTokensFromEnv uses env vars for signing keys.
+func GenerateTokensFromEnv(u user.User) (string, string, error) {
+	return GenerateTokens(os.Getenv("JWT_SECRET"), os.Getenv("JWT_REFRESH_SECRET"), u)
 }

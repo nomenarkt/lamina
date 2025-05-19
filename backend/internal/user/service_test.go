@@ -44,8 +44,9 @@ func (m *MockUserRepo) FindAll(ctx context.Context) ([]User, error) {
 	return args.Get(0).([]User), args.Error(1)
 }
 
-func (m *MockUserRepo) UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error {
-	args := m.Called(ctx, userID, fullName, companyID)
+// ✅ UPDATED: matches updated production repo signature
+func (m *MockUserRepo) UpdateUserProfile(ctx context.Context, userID int64, fullName string, employeeID *int, phone, address *string) error {
+	args := m.Called(ctx, userID, fullName, employeeID, phone, address)
 	return args.Error(0)
 }
 
@@ -111,4 +112,92 @@ func TestUserService_FindAll(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Empty(t, users)
 	})
+}
+
+func TestUserService_CompleteProfileByUserType(t *testing.T) {
+	type testCase struct {
+		name       string
+		user       User
+		request    UpdateProfileRequest
+		expectErr  string
+		expectCall bool
+	}
+
+	phone := "123456"
+	address := "HQ"
+	employeeID := 1234
+
+	tests := []testCase{
+		{
+			name: "external valid",
+			user: User{ID: 1, Status: "active", UserType: "external"},
+			request: UpdateProfileRequest{
+				FullName: "John Doe",
+			},
+			expectErr:  "",
+			expectCall: true,
+		},
+		{
+			name: "internal valid",
+			user: User{ID: 2, Status: "active", UserType: "internal"},
+			request: UpdateProfileRequest{
+				FullName:   "Jane Smith",
+				EmployeeID: &employeeID,
+				Phone:      &phone,
+				Address:    &address,
+			},
+			expectErr:  "",
+			expectCall: true,
+		},
+		{
+			name: "internal missing phone",
+			user: User{ID: 3, Status: "active", UserType: "internal"},
+			request: UpdateProfileRequest{
+				FullName:   "Sam MissingPhone",
+				EmployeeID: &employeeID,
+				Address:    &address,
+			},
+			expectErr:  "internal users must provide full name, employee ID, phone, and address",
+			expectCall: false,
+		},
+		{
+			name: "external missing name",
+			user: User{ID: 4, Status: "active", UserType: "external"},
+			request: UpdateProfileRequest{
+				FullName: "",
+			},
+			expectErr:  "external users must provide name",
+			expectCall: false,
+		},
+		{
+			name: "not confirmed user",
+			user: User{ID: 5, Status: "pending", UserType: "external"},
+			request: UpdateProfileRequest{
+				FullName: "Ghost User",
+			},
+			expectErr:  "account not confirmed",
+			expectCall: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, repo := newMockedUserService()
+
+			repo.On("FindByID", mock.Anything, tc.user.ID).Return(tc.user, nil)
+
+			if tc.expectCall {
+				repo.On("UpdateUserProfile", mock.Anything, tc.user.ID, tc.request.FullName, tc.request.EmployeeID, tc.request.Phone, tc.request.Address).Return(nil)
+			}
+
+			err := svc.CompleteProfileByUserType(context.Background(), tc.user.ID, tc.request)
+
+			if tc.expectErr != "" {
+				assert.Error(t, err)
+				assert.Equal(t, tc.expectErr, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

@@ -35,7 +35,7 @@ func RegisterRoutes(r *gin.RouterGroup, adminService *Service) {
 
 		log.Printf("Received request to create user: %+v", req)
 
-		err := adminService.CreateUser(c.Request.Context(), req, claims.Email)
+		err := adminService.InviteUser(c.Request.Context(), req, claims.Email)
 		if err != nil {
 			log.Printf("CreateUser failed: %v", err)
 			if strings.Contains(err.Error(), "duplicate key value") && strings.Contains(err.Error(), "users_email_key") {

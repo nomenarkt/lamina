@@ -10,12 +10,14 @@ import (
 
 // Repository defines the methods implemented by the database layer.
 type Repository interface {
-	IsEmailExists(email string) (bool, error)
-	CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error)
 	FindByEmail(ctx context.Context, email string) (user.User, error)
+	CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error)
+	CreateUserWithType(ctx context.Context, companyID int, email, hash, userType string) (int64, error)
+	IsEmailExists(email string) (bool, error)
 	FindByConfirmationToken(ctx context.Context, token string) (user.User, error)
 	MarkUserConfirmed(ctx context.Context, id int64) error
 	SetConfirmationToken(ctx context.Context, userID int64, token string) error
+	UpdatePasswordAndActivate(ctx context.Context, userID int64, hashed string) error
 }
 
 // repositoryImpl handles database operations for user authentication.
@@ -47,6 +49,15 @@ func (r *repositoryImpl) CreateUser(ctx context.Context, _ int, email string, ha
 		RETURNING id
 	`, email, hash).Scan(&id)
 
+	return id, err
+}
+
+func (r *repositoryImpl) CreateUserWithType(ctx context.Context, companyID int, email, hash, userType string) (int64, error) {
+	var id int64
+	err := r.db.QueryRowContext(ctx,
+		`INSERT INTO users (company_id, email, password_hash, role, status, user_type)
+		 VALUES ($1, $2, $3, 'user', 'pending', $4)
+		 RETURNING id`, companyID, email, hash, userType).Scan(&id)
 	return id, err
 }
 
@@ -82,5 +93,16 @@ func (r *repositoryImpl) SetConfirmationToken(ctx context.Context, userID int64,
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE users SET confirmation_token = $1 WHERE id = $2
 	`, token, userID)
+	return err
+}
+
+func (r *repositoryImpl) UpdatePasswordAndActivate(ctx context.Context, userID int64, hashed string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET password_hash = $1,
+		    status = 'active',
+		    confirmation_token = NULL
+		WHERE id = $2
+	`, hashed, userID)
 	return err
 }

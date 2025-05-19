@@ -42,3 +42,5 @@ test-*.go
 /frontend-admin/dist/
 /frontend-admin/build/
 /frontend-admin/.env*
+
+/docs/

@@ -3,6 +3,8 @@ package user
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -13,7 +15,7 @@ type Repo interface {
 	FindAll(ctx context.Context) ([]User, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	IsAdmin(ctx context.Context, id int64) (bool, error)
-	UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error
+	UpdateUserProfile(ctx context.Context, userID int64, fullName string, employeeID *int, phone, address *string) error
 	MarkUserActive(ctx context.Context, id int64) error
 	DeleteExpiredPendingUsers(ctx context.Context) error
 }
@@ -63,20 +65,38 @@ func (r *Repository) IsAdmin(ctx context.Context, id int64) (bool, error) {
 	return role == "admin", nil
 }
 
-// UpdateUserProfile updates both the full name and optionally the company ID of a user.
-func (r *Repository) UpdateUserProfile(ctx context.Context, userID int64, fullName string, companyID *int) error {
-	query := `UPDATE users SET full_name = :full_name`
-	args := map[string]interface{}{
-		"user_id":   userID,
-		"full_name": fullName,
+// UpdateUserProfile updates the user's full name and optionally company ID, phone, and address.
+func (r *Repository) UpdateUserProfile(ctx context.Context, userID int64, fullName string, employeeID *int, phone, address *string) error {
+	var (
+		setClauses []string
+		args       = map[string]interface{}{
+			"user_id": userID,
+		}
+	)
+
+	// Required field
+	setClauses = append(setClauses, "full_name = :full_name")
+	args["full_name"] = fullName
+
+	// Optional fields
+	if employeeID != nil {
+		setClauses = append(setClauses, "company_id = :company_id")
+		args["company_id"] = *employeeID
+	}
+	if phone != nil {
+		setClauses = append(setClauses, "phone = :phone")
+		args["phone"] = *phone
+	}
+	if address != nil {
+		setClauses = append(setClauses, "address = :address")
+		args["address"] = *address
 	}
 
-	if companyID != nil {
-		query += `, company_id = :company_id`
-		args["company_id"] = *companyID
-	}
-
-	query += ` WHERE id = :user_id`
+	query := fmt.Sprintf(`
+		UPDATE users
+		SET %s
+		WHERE id = :user_id
+	`, strings.Join(setClauses, ", "))
 
 	_, err := r.db.NamedExecContext(ctx, query, args)
 	return err

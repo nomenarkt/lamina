@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nomenarkt/lamina/common/utils"
+	"github.com/nomenarkt/lamina/internal/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,6 +18,8 @@ type ServiceInterface interface {
 	Signup(c *gin.Context)
 	SignupUser(ctx context.Context, req SignupRequest) (Response, error)
 	Login(ctx context.Context, req LoginRequest) (Response, error)
+	CompleteInvite(ctx context.Context, token string, password string) (Response, error)
+	ConfirmRegistration(ctx context.Context, token string) error
 }
 
 // Service provides user authentication logic.
@@ -24,7 +27,7 @@ type Service struct {
 	repo           Repository
 	checkPassword  func(raw, hash string) error
 	hashPassword   func(p string) (string, error)
-	generateTokens func(id int64, email, role string) (string, string, error)
+	generateTokens func(u user.User) (string, string, error)
 }
 
 // NewService creates a new Service instance.
@@ -35,52 +38,6 @@ func NewService(r Repository) *Service {
 		hashPassword:   HashPassword,
 		generateTokens: GenerateTokensFromEnv,
 	}
-}
-
-// SignupUser registers a new user and returns tokens.
-func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, error) {
-	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
-		return Response{}, errors.New("only @madagascarairlines.com emails are allowed")
-	}
-
-	exists, err := s.repo.IsEmailExists(req.Email)
-	if err != nil {
-		return Response{}, errors.New("failed to check user existence")
-	}
-	if exists {
-		return Response{}, errors.New("email already registered")
-	}
-
-	hashedPassword, err := s.hashPassword(req.Password)
-	if err != nil {
-		return Response{}, errors.New("failed to hash password")
-	}
-
-	userID, err := s.repo.CreateUser(ctx, 0, req.Email, hashedPassword)
-	if err != nil {
-		return Response{}, errors.New("failed to create user")
-	}
-
-	token, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		return Response{}, errors.New("failed to generate confirmation token")
-	}
-	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
-		return Response{}, errors.New("failed to store confirmation token")
-	}
-	if err := SendConfirmationEmail(req.Email, token); err != nil {
-		return Response{}, errors.New("failed to send confirmation email")
-	}
-
-	access, refresh, err := s.generateTokens(userID, req.Email, "user")
-	if err != nil {
-		return Response{}, errors.New("failed to generate tokens")
-	}
-
-	return Response{
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}, nil
 }
 
 // Signup is a Gin handler that registers a new user.
@@ -108,22 +65,73 @@ func (s *Service) Signup(c *gin.Context) {
 	})
 }
 
+// SignupUser registers a new user and returns tokens.
+func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, error) {
+	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
+		return Response{}, errors.New("only @madagascarairlines.com emails are allowed")
+	}
+
+	exists, err := s.repo.IsEmailExists(req.Email)
+	if err != nil {
+		return Response{}, errors.New("failed to check user existence")
+	}
+	if exists {
+		return Response{}, errors.New("email already registered")
+	}
+
+	hashedPassword, err := s.hashPassword(req.Password)
+	if err != nil {
+		return Response{}, errors.New("failed to hash password")
+	}
+
+	userID, err := s.repo.CreateUserWithType(ctx, 0, req.Email, hashedPassword, "internal")
+	if err != nil {
+		return Response{}, errors.New("failed to create user")
+	}
+
+	token, err := utils.GenerateSecureToken(32)
+	if err != nil {
+		return Response{}, errors.New("failed to generate confirmation token")
+	}
+	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
+		return Response{}, errors.New("failed to store confirmation token")
+	}
+	if err := SendConfirmationEmail(req.Email, token); err != nil {
+		return Response{}, errors.New("failed to send confirmation email")
+	}
+
+	newUser := user.User{
+		ID:    userID,
+		Email: req.Email,
+		Role:  "user",
+	}
+	access, refresh, err := s.generateTokens(newUser)
+	if err != nil {
+		return Response{}, errors.New("failed to generate tokens")
+	}
+
+	return Response{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
+}
+
 // Login validates a user and returns new tokens.
 func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error) {
-	user, err := s.repo.FindByEmail(ctx, req.Email)
+	userRecord, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		return Response{}, errors.New("invalid email or password")
 	}
 
-	if user.Status != "active" {
+	if userRecord.Status != "active" {
 		return Response{}, errors.New("account not confirmed")
 	}
 
-	if err := s.checkPassword(req.Password, user.PasswordHash); err != nil {
+	if err := s.checkPassword(req.Password, userRecord.PasswordHash); err != nil {
 		return Response{}, errors.New("invalid email or password")
 	}
 
-	access, refresh, err := s.generateTokens(user.ID, user.Email, user.Role)
+	access, refresh, err := s.generateTokens(userRecord)
 	if err != nil {
 		return Response{}, err
 	}
@@ -134,6 +142,76 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error)
 	}, nil
 }
 
+// CompleteInvite sets password, activates user, and returns JWT tokens.
+func (s *Service) CompleteInvite(ctx context.Context, token string, password string) (Response, error) {
+	userRecord, err := s.repo.FindByConfirmationToken(ctx, token)
+	if err != nil {
+		return Response{}, errors.New("invalid or expired token")
+	}
+	if userRecord.Status != "pending" {
+		return Response{}, errors.New("user already confirmed")
+	}
+	if time.Since(userRecord.CreatedAt) > 24*time.Hour {
+		return Response{}, errors.New("token expired")
+	}
+
+	hashed, err := s.hashPassword(password)
+	if err != nil {
+		return Response{}, errors.New("failed to hash password")
+	}
+
+	if err := s.repo.UpdatePasswordAndActivate(ctx, userRecord.ID, hashed); err != nil {
+		return Response{}, errors.New("failed to activate account")
+	}
+
+	access, refresh, err := s.generateTokens(userRecord)
+	if err != nil {
+		return Response{}, errors.New("failed to generate tokens")
+	}
+
+	return Response{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
+}
+
+// ConfirmRegistration activates a pending user account from email token.
+func (s *Service) ConfirmRegistration(ctx context.Context, token string) error {
+	userRecord, err := s.repo.FindByConfirmationToken(ctx, token)
+	if err != nil {
+		return errors.New("invalid or expired token")
+	}
+
+	if userRecord.Status != "pending" {
+		return errors.New("user already confirmed")
+	}
+
+	if time.Since(userRecord.CreatedAt) > 24*time.Hour {
+		return errors.New("token expired")
+	}
+
+	if err := s.repo.MarkUserConfirmed(ctx, userRecord.ID); err != nil {
+		return errors.New("failed to activate account")
+	}
+
+	return nil
+}
+
+// ValidateConfirmationToken validates and checks expiration of the confirmation token.
+func (s *Service) ValidateConfirmationToken(ctx context.Context, token string) error {
+	userRecord, err := s.repo.FindByConfirmationToken(ctx, token)
+	if err != nil {
+		return errors.New("invalid or expired confirmation token")
+	}
+	if userRecord.Status != "pending" {
+		return errors.New("user already confirmed")
+	}
+	if time.Since(userRecord.CreatedAt) > 24*time.Hour {
+		return errors.New("confirmation token expired")
+	}
+	return nil // No-op (user will confirm later via /complete-invite)
+}
+
 // HashPassword hashes a plaintext password using bcrypt.
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -141,21 +219,6 @@ func HashPassword(password string) (string, error) {
 }
 
 // CheckPasswordHash compares a plaintext password to a bcrypt hash.
-func CheckPasswordHash(raw, hash string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(raw))
-}
-
-// ConfirmRegistration validates and finalizes email confirmation via token.
-func (s *Service) ConfirmRegistration(ctx context.Context, token string) error {
-	user, err := s.repo.FindByConfirmationToken(ctx, token)
-	if err != nil {
-		return errors.New("invalid or expired confirmation token")
-	}
-	if user.Status != "pending" {
-		return errors.New("user already confirmed")
-	}
-	if time.Since(user.CreatedAt) > 24*time.Hour {
-		return errors.New("confirmation token expired")
-	}
-	return s.repo.MarkUserConfirmed(ctx, user.ID)
+func CheckPasswordHash(_raw, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(_raw))
 }

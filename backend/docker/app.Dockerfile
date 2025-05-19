@@ -1,4 +1,4 @@
-FROM golang:1.24
+FROM golang:1.24.3
 
 WORKDIR /app
 
@@ -11,7 +11,11 @@ RUN go mod download
 RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz \
   | tar xvz && mv migrate /usr/local/bin/migrate
 
-RUN apt-get update && apt-get install -y bash
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gnupg ca-certificates && \
+    apt-get install -y bash && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 
 RUN go build -o server ./cmd/server
 

@@ -11,6 +11,9 @@ import (
 // Repo defines the behavior for admin-related persistence logic.
 type Repo interface {
 	CreateUser(ctx context.Context, u *user.User) error
+	IsEmailExists(email string) (bool, error)
+	FindUserIDByEmail(ctx context.Context, email string) (int64, error)
+	SetConfirmationToken(ctx context.Context, userID int64, token string) error
 }
 
 // Repository implements Repo using a SQL database.
@@ -28,14 +31,14 @@ func (r *Repository) CreateUser(ctx context.Context, u *user.User) error {
 	// Conditional additions
 	companyColumn := ""
 	companyValue := ""
-	if u.CompanyID != nil && *u.CompanyID > 0 {
+	if u.EmployeeID != nil && *u.EmployeeID > 0 {
 		companyColumn = ", company_id"
 		companyValue = ", :company_id"
 	}
 
 	query := `
-		INSERT INTO users (email, password_hash, role, status, full_name, created_at` + companyColumn + `)
-		VALUES (:email, :password_hash, :role, :status, :full_name, :created_at` + companyValue + `)
+		INSERT INTO users (email, password_hash, role, status, full_name, created_at, user_type` + companyColumn + `)
+		VALUES (:email, :password_hash, :role, :status, :full_name, :created_at, :user_type` + companyValue + `)
 	`
 
 	// Safe binding args
@@ -46,12 +49,37 @@ func (r *Repository) CreateUser(ctx context.Context, u *user.User) error {
 		"status":        u.Status,
 		"full_name":     u.FullName,
 		"created_at":    u.CreatedAt,
+		"user_type":     u.UserType,
 	}
 
-	if u.CompanyID != nil && *u.CompanyID > 0 {
-		args["company_id"] = u.CompanyID
+	if u.EmployeeID != nil && *u.EmployeeID > 0 {
+		args["company_id"] = u.EmployeeID
 	}
 
 	_, err := r.db.NamedExecContext(ctx, query, args)
+	return err
+}
+
+// IsEmailExists checks if a user already exists with the given email address.
+func (r *Repository) IsEmailExists(email string) (bool, error) {
+	var count int
+	err := r.db.Get(&count, "SELECT COUNT(*) FROM users WHERE email = $1", email)
+	return count > 0, err
+}
+
+// FindUserIDByEmail retrieves the user ID associated with a specific email.
+func (r *Repository) FindUserIDByEmail(ctx context.Context, email string) (int64, error) {
+	var id int64
+	err := r.db.GetContext(ctx, &id, "SELECT id FROM users WHERE email = $1", email)
+	return id, err
+}
+
+// SetConfirmationToken assigns a confirmation token to the specified user ID.
+func (r *Repository) SetConfirmationToken(ctx context.Context, userID int64, token string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET confirmation_token = $1
+		WHERE id = $2
+	`, token, userID)
 	return err
 }

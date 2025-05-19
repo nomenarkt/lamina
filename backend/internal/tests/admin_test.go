@@ -11,14 +11,12 @@ import (
 	"github.com/nomenarkt/lamina/internal/admin"
 	"github.com/nomenarkt/lamina/internal/middleware"
 	testutils "github.com/nomenarkt/lamina/internal/tests/testutils"
-	"github.com/nomenarkt/lamina/internal/user"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func setupRouterWithService(service *admin.Service) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-
 	r := gin.New()
 	v1 := r.Group("/api/v1")
 
@@ -42,13 +40,13 @@ func setupRouterWithService(service *admin.Service) *gin.Engine {
 			return
 		}
 
-		err := service.CreateUser(c.Request.Context(), req, claims.Email)
+		err := service.InviteUser(c.Request.Context(), req, claims.Email)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to invite user"})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"message": "user successfully created"})
+		c.JSON(http.StatusCreated, gin.H{"message": "user successfully invited"})
 	})
 
 	return r
@@ -89,14 +87,13 @@ func TestCreateUser_Success_WithAdminRole(t *testing.T) {
 	mockRepo := new(testutils.MockAdminRepo)
 	mockHasher := new(testutils.MockHasher)
 
-	hashed := "hashed123"
-	mockHasher.On("HashPassword", "secure1234").Return(hashed, nil)
-	mockRepo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u *user.User) bool {
-		return u.Email == "successcase@madagascarairlines.com" &&
-			u.PasswordHash == hashed &&
-			u.CompanyID == nil &&
-			u.Role == ""
-	})).Return(nil)
+	reqEmail := "successcase@madagascarairlines.com"
+	tokenUserID := int64(99)
+
+	mockRepo.On("IsEmailExists", reqEmail).Return(false, nil)
+	mockRepo.On("CreateUser", mock.Anything, mock.Anything).Return(nil)
+	mockRepo.On("FindUserIDByEmail", mock.Anything, reqEmail).Return(tokenUserID, nil)
+	mockRepo.On("SetConfirmationToken", mock.Anything, tokenUserID, mock.AnythingOfType("string")).Return(nil)
 
 	service := admin.NewAdminService(mockRepo, mockHasher)
 	router := setupRouterWithService(service)
@@ -105,8 +102,7 @@ func TestCreateUser_Success_WithAdminRole(t *testing.T) {
 
 	payload := `{
 		"email": "successcase@madagascarairlines.com",
-		"password": "secure1234",
-		"confirm_password": "secure1234"
+		"role": "editor"
 	}`
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/create-user", strings.NewReader(payload))
@@ -118,6 +114,5 @@ func TestCreateUser_Success_WithAdminRole(t *testing.T) {
 
 	t.Logf("RESPONSE BODY: %s", w.Body.String())
 	assert.Equal(t, http.StatusCreated, w.Code)
-	mockHasher.AssertExpectations(t)
 	mockRepo.AssertExpectations(t)
 }

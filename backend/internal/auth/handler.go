@@ -34,8 +34,7 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 
 	router.GET("/auth/confirm/:token", func(c *gin.Context) {
 		token := c.Param("token")
-		err := service.(*Service).ConfirmRegistration(c.Request.Context(), token)
-		if err != nil {
+		if err := service.ConfirmRegistration(c.Request.Context(), token); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -45,6 +44,28 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 			frontendURL = "http://localhost:5173"
 		}
 		c.Redirect(http.StatusTemporaryRedirect, frontendURL+"/login")
+	})
+
+	router.POST("/auth/complete-invite", func(c *gin.Context) {
+		var req struct {
+			Token    string `json:"token" binding:"required"`
+			Password string `json:"password" binding:"required,min=8"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input"})
+			return
+		}
+
+		resp, err := service.CompleteInvite(c.Request.Context(), req.Token, req.Password)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"access_token":  resp.AccessToken,
+			"refresh_token": resp.RefreshToken,
+		})
 	})
 
 }

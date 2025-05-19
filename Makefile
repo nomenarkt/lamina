@@ -23,10 +23,7 @@ lint:
 
 # === Frontend Commands ===
 
-.PHONY: frontend-dev frontend-install frontend-lint frontend-build
-
-frontend-install:
-	cd $(FRONTEND_DIR) && npm install
+FRONTEND_DIR=./frontend-admin
 
 frontend-dev:
 	cd $(FRONTEND_DIR) && npm run dev
@@ -34,5 +31,9 @@ frontend-dev:
 frontend-lint:
 	cd $(FRONTEND_DIR) && npm run lint
 
-frontend-build:
-	cd $(FRONTEND_DIR) && npm run build
+frontend-test:
+	cd $(FRONTEND_DIR) && npm test
+
+frontend-format:
+	cd $(FRONTEND_DIR) && npm run format
+
