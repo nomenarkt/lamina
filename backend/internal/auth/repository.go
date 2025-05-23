@@ -12,7 +12,7 @@ import (
 type Repository interface {
 	FindByEmail(ctx context.Context, email string) (user.User, error)
 	CreateUser(ctx context.Context, companyID int, email string, hash string) (int64, error)
-	CreateUserWithType(ctx context.Context, companyID int, email, hash, userType string) (int64, error)
+	CreateUserWithType(ctx context.Context, companyID *int, email, hash, userType string) (int64, error)
 	IsEmailExists(email string) (bool, error)
 	FindByConfirmationToken(ctx context.Context, token string) (user.User, error)
 	MarkUserConfirmed(ctx context.Context, id int64) error
@@ -52,7 +52,7 @@ func (r *repositoryImpl) CreateUser(ctx context.Context, _ int, email string, ha
 	return id, err
 }
 
-func (r *repositoryImpl) CreateUserWithType(ctx context.Context, companyID int, email, hash, userType string) (int64, error) {
+func (r *repositoryImpl) CreateUserWithType(ctx context.Context, companyID *int, email, hash, userType string) (int64, error) {
 	var id int64
 	err := r.db.QueryRowContext(ctx,
 		`INSERT INTO users (company_id, email, password_hash, role, status, user_type)

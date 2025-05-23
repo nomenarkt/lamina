@@ -26,7 +26,7 @@ func (m *MockAuthRepo) CreateUser(ctx context.Context, companyID int, email stri
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *MockAuthRepo) CreateUserWithType(ctx context.Context, companyID int, email, hash, userType string) (int64, error) {
+func (m *MockAuthRepo) CreateUserWithType(ctx context.Context, companyID *int, email, hash, userType string) (int64, error) {
 	args := m.Called(ctx, companyID, email, hash, userType)
 	return args.Get(0).(int64), args.Error(1)
 }
@@ -132,7 +132,7 @@ func TestSignupUser_Success(t *testing.T) {
 	email := "user@madagascarairlines.com"
 
 	repo.On("IsEmailExists", email).Return(false, nil)
-	repo.On("CreateUserWithType", mock.Anything, 0, email, "hashed123", "internal").Return(int64(42), nil)
+	repo.On("CreateUserWithType", mock.Anything, (*int)(nil), email, "hashed123", "internal").Return(int64(42), nil)
 	repo.On("SetConfirmationToken", mock.Anything, int64(42), mock.AnythingOfType("string")).Return(nil)
 
 	service := &Service{
@@ -201,14 +201,15 @@ func TestSignupUser_HashFailure(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Equal(t, "failed to hash password", err.Error())
+	assert.EqualError(t, err, "failed to hash password: hash failed")
+
 }
 
 func TestSignupUser_TokenFailure(t *testing.T) {
 	repo := new(MockAuthRepo)
 	email := "user@madagascarairlines.com"
 	repo.On("IsEmailExists", email).Return(false, nil)
-	repo.On("CreateUserWithType", mock.Anything, 0, email, "hashedok", "internal").Return(int64(99), nil)
+	repo.On("CreateUserWithType", mock.Anything, (*int)(nil), email, "hashedok", "internal").Return(int64(99), nil)
 	repo.On("SetConfirmationToken", mock.Anything, int64(99), mock.AnythingOfType("string")).
 		Return(errors.New("mock token failure"))
 
@@ -228,7 +229,8 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Equal(t, "failed to store confirmation token", err.Error())
+	assert.EqualError(t, err, "failed to store confirmation token: mock token failure")
+
 }
 
 func TestSignupUser_InvalidDomain(t *testing.T) {

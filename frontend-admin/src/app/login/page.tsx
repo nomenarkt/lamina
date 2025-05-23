@@ -1,10 +1,9 @@
-import { LoginForm } from '@/features/auth/components/LoginForm';
+import { LoginCard } from '@/components/auth/LoginCard';
 
 export default function LoginPage() {
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Login</h1>
-      <LoginForm />
-    </div>
+    <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-brand-beige">
+      <LoginCard />
+    </main>
   );
 }

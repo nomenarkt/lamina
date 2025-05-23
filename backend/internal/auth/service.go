@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -67,39 +69,53 @@ func (s *Service) Signup(c *gin.Context) {
 
 // SignupUser registers a new user and returns tokens.
 func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, error) {
+	log.Printf("➡️ SignupUser called with email: %s", req.Email)
+
 	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
 		return Response{}, errors.New("only @madagascarairlines.com emails are allowed")
 	}
 
+	log.Println("🔍 Checking if email exists...")
 	exists, err := s.repo.IsEmailExists(req.Email)
 	if err != nil {
-		return Response{}, errors.New("failed to check user existence")
+		return Response{}, fmt.Errorf("failed to check user existence: %w", err)
 	}
 	if exists {
 		return Response{}, errors.New("email already registered")
 	}
 
+	log.Println("🔐 Hashing password...")
 	hashedPassword, err := s.hashPassword(req.Password)
 	if err != nil {
-		return Response{}, errors.New("failed to hash password")
+		return Response{}, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	userID, err := s.repo.CreateUserWithType(ctx, 0, req.Email, hashedPassword, "internal")
+	log.Println("📝 Creating user with type 'internal'...")
+	var unsetCompanyID *int
+	userID, err := s.repo.CreateUserWithType(ctx, unsetCompanyID, req.Email, hashedPassword, "internal")
+
 	if err != nil {
-		return Response{}, errors.New("failed to create user")
+		log.Printf("❌ DB error during CreateUserWithType: %v", err)
+		return Response{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
+	log.Printf("📨 Generating confirmation token for user ID: %d", userID)
 	token, err := utils.GenerateSecureToken(32)
 	if err != nil {
-		return Response{}, errors.New("failed to generate confirmation token")
-	}
-	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
-		return Response{}, errors.New("failed to store confirmation token")
-	}
-	if err := SendConfirmationEmail(req.Email, token); err != nil {
-		return Response{}, errors.New("failed to send confirmation email")
+		return Response{}, fmt.Errorf("failed to generate confirmation token: %w", err)
 	}
 
+	log.Println("💾 Storing confirmation token...")
+	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
+		return Response{}, fmt.Errorf("failed to store confirmation token: %w", err)
+	}
+
+	log.Println("📧 Sending confirmation email...")
+	if err := SendConfirmationEmail(req.Email, token); err != nil {
+		return Response{}, fmt.Errorf("failed to send confirmation email: %w", err)
+	}
+
+	log.Println("🔑 Generating access and refresh tokens...")
 	newUser := user.User{
 		ID:    userID,
 		Email: req.Email,
@@ -107,9 +123,10 @@ func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, 
 	}
 	access, refresh, err := s.generateTokens(newUser)
 	if err != nil {
-		return Response{}, errors.New("failed to generate tokens")
+		return Response{}, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
+	log.Println("✅ Signup flow completed successfully")
 	return Response{
 		AccessToken:  access,
 		RefreshToken: refresh,
