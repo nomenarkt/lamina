@@ -40,42 +40,54 @@ func (s *Service) InviteUser(ctx context.Context, req CreateUserRequest, _ strin
 		return errors.New("email already registered")
 	}
 
-	// Create user with empty password — user will set it during confirmation
+	// Determine user type based on email domain
 	userType := "external"
 	if strings.HasSuffix(strings.ToLower(req.Email), "@madagascarairlines.com") {
 		userType = "internal"
+	}
+
+	// Default role to "user" if not specified
+	role := req.Role
+	if role == "" {
+		role = "user"
 	}
 
 	newUser := &user.User{
 		Email:        req.Email,
 		PasswordHash: "",
 		Status:       "pending",
-		Role:         req.Role,
+		Role:         role,
 		UserType:     userType,
 		CreatedAt:    time.Now(),
+	}
+
+	// ✅ Set access_expires_at if external user with duration
+	if userType == "external" && req.Duration != "" {
+		dur, err := auth.ParseFlexibleDuration(req.Duration)
+		if err != nil {
+			return errors.New("invalid duration format (e.g., 2w, 1m, 90d)")
+		}
+		t := newUser.CreatedAt.Add(dur)
+		newUser.AccessExpiresAt = &t
 	}
 
 	if err := s.repo.CreateUser(ctx, newUser); err != nil {
 		return err
 	}
 
-	// Retrieve the new user's ID
 	userID, err := s.repo.FindUserIDByEmail(ctx, req.Email)
 	if err != nil {
 		return err
 	}
 
-	// Generate secure confirmation token
 	token, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		return err
 	}
 
-	// Store confirmation token
 	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
 		return err
 	}
 
-	// Send confirmation email
 	return auth.SendConfirmationEmail(req.Email, token)
 }

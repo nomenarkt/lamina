@@ -1,4 +1,4 @@
-// Package main starts the application server.
+// Package main initializes and starts the Lamina backend API server.
 package main
 
 import (
@@ -37,7 +37,6 @@ func main() {
 
 	router := gin.Default()
 
-	// ✅ CORS middleware (adjust AllowOrigins in production!)
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -49,15 +48,16 @@ func main() {
 
 	api := router.Group("/api/v1")
 
-	// Public routes
+	// Auth setup
 	authRepo := auth.NewAuthRepository(db)
 	authService := auth.NewService(authRepo)
 	auth.RegisterRoutes(api, db, authService)
 
-	// Protected routes
-	api.Use(auth.Middleware())
+	// Secure endpoints
+	userRepo := user.NewUserRepository(db)
+	api.Use(auth.Middleware(userRepo)) // ✅ Inject userRepo
+
 	{
-		userRepo := user.NewUserRepository(db)
 		userService := user.NewUserService(userRepo)
 		userHandler := user.NewUserHandler(userService)
 		user.RegisterRoutes(api, userHandler)
@@ -73,8 +73,6 @@ func main() {
 		crewService := crew.NewService(crewRepo)
 		crewHandler := crew.NewHandler(crewService)
 		crew.RegisterRoutes(api, crewHandler)
-
-		// tenant.RegisterRoutes(api, db)
 	}
 
 	port := os.Getenv("PORT")

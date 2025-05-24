@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/nomenarkt/lamina/internal/user"
 )
 
 // Context keys
@@ -19,7 +21,7 @@ const (
 )
 
 // Middleware validates JWTs and injects user identity into Gin context.
-func Middleware() gin.HandlerFunc {
+func Middleware(repo user.Repo) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -36,7 +38,7 @@ func Middleware() gin.HandlerFunc {
 		}
 
 		tokenString := parts[1]
-		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, &user.Claims{}, func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 			}
@@ -49,9 +51,25 @@ func Middleware() gin.HandlerFunc {
 			return
 		}
 
-		claims, ok := token.Claims.(*Claims)
+		claims, ok := token.Claims.(*user.Claims)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
+
+		// Enforce Access Expiration for external users
+		userRecord, err := repo.FindByID(c.Request.Context(), claims.UserID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			c.Abort()
+			return
+		}
+
+		if userRecord.UserType == "external" &&
+			userRecord.AccessExpiresAt != nil &&
+			userRecord.AccessExpiresAt.Before(time.Now()) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access expired for this user"})
 			c.Abort()
 			return
 		}
@@ -67,8 +85,7 @@ func Middleware() gin.HandlerFunc {
 // RequireRoles returns a Gin middleware that allows access only to users with the specified roles.
 func RequireRoles(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		roleValue, exists := c.Get(ContextUserRoleKey) // use your const here
-
+		roleValue, exists := c.Get(ContextUserRoleKey)
 		if !exists {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden: missing role"})
 			return

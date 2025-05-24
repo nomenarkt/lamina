@@ -1,6 +1,11 @@
 // Package auth defines data models related to authentication operations.
 package auth
 
+import (
+	"errors"
+	"strings"
+)
+
 // SignupRequest represents the expected payload for a user signup request.
 type SignupRequest struct {
 	Email    string `json:"email" binding:"required,email"`
@@ -17,6 +22,23 @@ type LoginRequest struct {
 type Response struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+// PasswordPayload is used for password confirmation during signup or invite completion.
+type PasswordPayload struct {
+	Password        string `json:"password" binding:"required,min=8"`
+	ConfirmPassword string `json:"confirm_password" binding:"required,min=8"`
+}
+
+// Validate ensures that both passwords match and are not empty.
+func (p PasswordPayload) Validate() error {
+	if strings.TrimSpace(p.Password) == "" || strings.TrimSpace(p.ConfirmPassword) == "" {
+		return errors.New("password and confirm password must not be empty")
+	}
+	if p.Password != p.ConfirmPassword {
+		return errors.New("passwords do not match")
+	}
+	return nil
 }
 
 // User represents the structure of a user in the system's database.

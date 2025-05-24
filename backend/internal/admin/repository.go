@@ -37,19 +37,26 @@ func (r *Repository) CreateUser(ctx context.Context, u *user.User) error {
 	}
 
 	query := `
-		INSERT INTO users (email, password_hash, role, status, full_name, created_at, user_type` + companyColumn + `)
-		VALUES (:email, :password_hash, :role, :status, :full_name, :created_at, :user_type` + companyValue + `)
+		INSERT INTO users (
+			email, password_hash, role, status, full_name,
+			created_at, user_type, access_expires_at` + companyColumn + `
+		)
+		VALUES (
+			:email, :password_hash, :role, :status, :full_name,
+			:created_at, :user_type, :access_expires_at` + companyValue + `
+		)
 	`
 
 	// Safe binding args
 	args := map[string]interface{}{
-		"email":         u.Email,
-		"password_hash": u.PasswordHash,
-		"role":          u.Role,
-		"status":        u.Status,
-		"full_name":     u.FullName,
-		"created_at":    u.CreatedAt,
-		"user_type":     u.UserType,
+		"email":             u.Email,
+		"password_hash":     u.PasswordHash,
+		"role":              u.Role,
+		"status":            u.Status,
+		"full_name":         u.FullName,
+		"created_at":        u.CreatedAt,
+		"user_type":         u.UserType,
+		"access_expires_at": u.AccessExpiresAt,
 	}
 
 	if u.EmployeeID != nil && *u.EmployeeID > 0 {

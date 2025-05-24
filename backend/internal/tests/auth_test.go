@@ -20,6 +20,10 @@ type MockAuthService struct {
 	mock.Mock
 }
 
+func (m *MockAuthService) InviteUser(c *gin.Context) {
+	m.Called(c)
+}
+
 func (m *MockAuthService) Signup(c *gin.Context) {
 	m.Called(c)
 }

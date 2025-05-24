@@ -16,6 +16,11 @@ type MockAuthRepo struct {
 	mock.Mock
 }
 
+func (m *MockAuthRepo) CreateUserInvite(ctx context.Context, email, userType string, accessExpires *time.Time) (int64, error) {
+	args := m.Called(ctx, email, userType, accessExpires)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 func (m *MockAuthRepo) IsEmailExists(email string) (bool, error) {
 	args := m.Called(email)
 	return args.Bool(0), args.Error(1)

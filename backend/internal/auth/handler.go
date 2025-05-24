@@ -1,3 +1,4 @@
+// Package auth handles HTTP routing for authentication.
 package auth
 
 import (
@@ -24,7 +25,7 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		tokens, err := service.Login(c.Request.Context(), req) // match interface from service.go
+		tokens, err := service.Login(c.Request.Context(), req)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
@@ -48,11 +49,15 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 
 	router.POST("/auth/complete-invite", func(c *gin.Context) {
 		var req struct {
-			Token    string `json:"token" binding:"required"`
-			Password string `json:"password" binding:"required,min=8"`
+			Token string `json:"token" binding:"required"`
+			PasswordPayload
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input"})
+			return
+		}
+		if err := req.Validate(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -67,5 +72,4 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 			"refresh_token": resp.RefreshToken,
 		})
 	})
-
 }
