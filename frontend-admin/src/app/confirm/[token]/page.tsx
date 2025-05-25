@@ -4,19 +4,17 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Props = {
-  params: {
-    token: string;
-  };
+  params: Promise<{ token: string }>;
 };
 
 export default function ConfirmPage({ params }: Props) {
   const router = useRouter();
-  const { token } = params;
   const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
 
   useEffect(() => {
     const confirmEmail = async () => {
       try {
+        const { token } = await params;
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/confirm/${token}`);
         if (res.ok) {
           setStatus('success');
@@ -32,7 +30,7 @@ export default function ConfirmPage({ params }: Props) {
     };
 
     confirmEmail();
-  }, [token, router]);
+  }, [params, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center text-gray-600">
