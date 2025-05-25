@@ -44,3 +44,6 @@ test-*.go
 /frontend-admin/.env*
 
 /docs/
+
+# Backend runtime
+/backend/tmp/
