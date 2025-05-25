@@ -262,10 +262,17 @@ func (s *Service) CompleteInvite(ctx context.Context, token string, password str
 func (s *Service) ConfirmRegistration(ctx context.Context, token string) error {
 	userRecord, err := s.repo.FindByConfirmationToken(ctx, token)
 	if err != nil {
+		// Token not found or corrupted
 		return errors.New("invalid or expired token")
 	}
 
+	if userRecord.Status == "active" {
+		// User already confirmed
+		return errors.New("user already confirmed")
+	}
+
 	if userRecord.Status != "pending" {
+		// Any non-pending status is not valid for confirmation
 		return errors.New("user already confirmed")
 	}
 

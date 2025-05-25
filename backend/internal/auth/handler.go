@@ -2,6 +2,8 @@
 package auth
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -35,16 +37,32 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 
 	router.GET("/auth/confirm/:token", func(c *gin.Context) {
 		token := c.Param("token")
-		if err := service.ConfirmRegistration(c.Request.Context(), token); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		frontendURL := os.Getenv("FRONTEND_URL")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:3000"
+		}
+
+		err := service.ConfirmRegistration(c.Request.Context(), token)
+		if err != nil {
+			log.Printf("📛 Email confirmation error: %v", err)
+			reason := "invalid"
+			switch err.Error() {
+			case "token expired":
+				reason = "expired"
+			case "user already confirmed":
+				reason = "already-confirmed"
+			}
+			c.Redirect(http.StatusFound, fmt.Sprintf("%s/confirm-error?reason=%s", frontendURL, reason))
 			return
 		}
 
-		frontendURL := os.Getenv("FRONTEND_URL")
-		if frontendURL == "" {
-			frontendURL = "http://localhost:5173"
+		// Optional JSON fallback for fetch-based tools or Postman
+		if c.GetHeader("Accept") == "application/json" {
+			c.JSON(http.StatusOK, gin.H{"message": "account confirmed"})
+			return
 		}
-		c.Redirect(http.StatusTemporaryRedirect, frontendURL+"/login")
+
+		c.Redirect(http.StatusFound, fmt.Sprintf("%s/email-confirmed", frontendURL))
 	})
 
 	router.POST("/auth/complete-invite", func(c *gin.Context) {
