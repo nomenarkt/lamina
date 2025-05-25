@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function ConfirmPage({ params }: { params: { token: string } }) {
+type Props = {
+  params: {
+    token: string;
+  };
+};
+
+export default function ConfirmPage({ params }: Props) {
   const router = useRouter();
   const { token } = params;
   const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
@@ -14,7 +20,7 @@ export default function ConfirmPage({ params }: { params: { token: string } }) {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/confirm/${token}`);
         if (res.ok) {
           setStatus('success');
-          setTimeout(() => router.push('/email-confirmed'), 500); // ✅ redirect after status change
+          setTimeout(() => router.push('/email-confirmed'), 500);
         } else {
           setStatus('error');
           setTimeout(() => router.push('/confirm-error'), 1000);
