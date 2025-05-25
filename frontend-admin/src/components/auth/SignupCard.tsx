@@ -45,9 +45,7 @@ export function SignupCard() {
         throw new Error(data.message || 'Signup failed');
       }
 
-      const { access_token } = data;
-      localStorage.setItem('access_token', access_token);
-      router.push('/dashboard');
+      router.push('/check-email'); // ✅ Redirect here after successful signup
     } catch (err) {
       const message =
         err instanceof Error ? err.message : typeof err === 'string' ? err : 'An unknown error occurred';
