@@ -22,4 +22,12 @@ RUN go build -o server ./cmd/server
 # Install golangci-lint
 RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-CMD ["./server"]
+# Install air for live reload
+RUN curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b /usr/local/bin
+
+CMD ["air", "-c", ".air.toml"]
+
+#| Mode        | Command in Dockerfile            | Use Case                        |
+#| ----------- | -------------------------------- | ------------------------------- |
+#| Production  | `CMD ["./server"]`               | Final binary, no reload         |
+#| Development | `CMD ["air", "-c", ".air.toml"]` | Live reload with source mapping |
