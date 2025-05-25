@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ✈️ Lamina Frontend (Admin Portal)
 
-## Getting Started
+This is the React-based frontend for Lamina — a scalable SaaS platform for aviation logistics and crew scheduling.
 
-First, run the development server:
+It’s built for Madagascar Airlines staff and admin users to access protected resources and onboard securely.
+
+---
+
+## 🧱 Tech Stack
+
+| Area              | Tech                            |
+|-------------------|---------------------------------|
+| Framework         | Next.js App Router (React 18)   |
+| Styling           | Tailwind CSS (token-based)      |
+| Language          | TypeScript                      |
+| Testing           | Jest + React Testing Library    |
+| Forms & Auth      | LocalStorage tokens (MVP phase) |
+| Build & Deploy    | Vercel-ready                    |
+
+---
+
+## 📦 Key Features
+
+- ✅ Email confirmation flows with 24h expiry
+- ✅ JWT-based login with inline error feedback
+- ✅ Admin and self-service signup (internal-only domain)
+- ✅ ARIA-accessible forms and alerts
+- ✅ Error handling and redirect logic from backend token flows
+- ✅ Unit-tested Card components and confirmation screens
+
+---
+
+## 🔧 Local Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+cd frontend-admin
+npm install
+cp .env.local.example .env.local
+Update .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8080
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+🚀 Development Commands
+| Action                          | Command              |
+| ------------------------------- | -------------------- |
+| Run dev server (localhost:3000) | `npm run dev`        |
+| Run tests                       | `make frontend-test` |
+| Run lint check                  | `make frontend-lint` |
+| Run tests directly              | `npm test`           |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+📁 Directory Structure
+frontend-admin/
+├── src/
+│   ├── app/                    # App Router pages
+│   ├── components/auth/        # LoginCard, SignupCard, Layout
+│   ├── app/confirm-error/      # Dynamic redirect + messaging
+│   ├── lib/api/                # API calls (e.g. signup, login)
+│   └── tailwind.config.js      # Theme tokens (green, gold)
+├── public/
+│   └── logo.webp               # Madagascar Airlines branding
+├── __tests__/                  # Jest unit tests (co-located soon)
+└── README.md                   # You're here
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+🧪 Test Coverage
+make frontend-test
+-Includes tests for:
+-Field validation
+-Email domain enforcement
+-Backend error display
+-Confirmation screen behavior
+-Dynamic error routing
 
-## Learn More
+🌐 Planned Features
+ Replace localStorage with HttpOnly secure cookies
+ Multi-language support (English + French)
+ Resend confirmation link from /check-email
+ Session-aware route guards (/dashboard)
+ End-to-end tests (Cypress or Playwright)
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+🧠 Frontend Philosophy
+Lamina’s frontend is:
+-Token-driven for theme and brand consistency
+-Built with ARIA-first accessibility patterns
+-Designed for testability and DX
+-Scalable across teams and modules
