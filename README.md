@@ -62,7 +62,7 @@ make dev-reset    # Full reset (rebuild containers, migrations)
  🧱 Project Layout
  lamina/
 ├── backend/                # Go backend and SQL migrations
-├── frontend-admin/         # React frontend with Vite and Tailwind
+├── frontend-admin/         # React frontend built with Next.js and Tailwind CSS
 ├── Makefile                # Unified CLI to manage backend + frontend
 └── README.md               # Root overview (you are here)
 
