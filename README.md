@@ -7,7 +7,7 @@
 ## 📂 Module READMEs
 
 - [`backend/README.md`](./backend/README.md) — Go services, PostgreSQL, auth flows, Makefile CLI
-- [`frontend-admin/README.md`](./frontend-admin/README.md) — React + Vite admin panel with auth and redirect UX
+- [`frontend-admin/README.md`](./frontend-admin/README.md) — Next.js-based admin panel with auth and redirect UX
 
 ---
 
