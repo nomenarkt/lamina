@@ -90,4 +90,35 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 			"refresh_token": resp.RefreshToken,
 		})
 	})
+
+	router.POST("/auth/resend-confirmation", func(c *gin.Context) {
+		var req struct {
+			Email string `json:"email" binding:"required,email"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			log.Printf("❌ Invalid email input: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email"})
+			return
+		}
+
+		log.Printf("🔁 Resend confirmation requested for email: %s", req.Email)
+
+		if err := service.ResendConfirmation(c.Request.Context(), req.Email); err != nil {
+			log.Printf("❌ Resend failed: %v", err)
+			switch err.Error() {
+			case "user already confirmed or invalid status":
+				c.JSON(http.StatusBadRequest, gin.H{"error": "User already confirmed"})
+			case "user not found":
+				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			case "resend allowed only for internal users":
+				c.JSON(http.StatusForbidden, gin.H{"error": "Resend allowed only for internal users"})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not resend confirmation"})
+			}
+			return
+		}
+
+		log.Printf("✅ Resend email dispatched successfully for %s", req.Email)
+		c.JSON(http.StatusOK, gin.H{"message": "Confirmation email resent"})
+	})
 }

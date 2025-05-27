@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -16,14 +17,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// InviteRequest represents a request to invite a user with optional duration for access.
+// InviteRequest represents a request payload for inviting a user (internal or external).
 type InviteRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	UserType string `json:"user_type" binding:"required"` // internal or external
 	Duration string `json:"duration,omitempty"`           // only for external (e.g., "1w", "90m")
 }
 
-// ServiceInterface defines the interface for Service business logic.
+// ServiceInterface defines all the methods available in the auth service layer.
 type ServiceInterface interface {
 	Signup(c *gin.Context)
 	InviteUser(c *gin.Context)
@@ -31,34 +32,42 @@ type ServiceInterface interface {
 	Login(ctx context.Context, req LoginRequest) (Response, error)
 	CompleteInvite(ctx context.Context, token string, password string) (Response, error)
 	ConfirmRegistration(ctx context.Context, token string) error
+	ResendConfirmation(ctx context.Context, email string) error
 }
 
-// Service provides user authentication logic.
+// Service provides the implementation for authentication-related business logic.
 type Service struct {
-	repo           Repository
-	checkPassword  func(raw, hash string) error
-	hashPassword   func(p string) (string, error)
-	generateTokens func(u user.User) (string, string, error)
+	repo            Repository
+	checkPassword   func(raw, hash string) error
+	hashPassword    func(p string) (string, error)
+	generateTokens  func(u user.User) (string, string, error)
+	confirmationTTL time.Duration
 }
 
-// NewService creates a new Service instance.
+// NewService creates a new instance of the auth Service.
 func NewService(r Repository) *Service {
+	ttlHours := 24
+	if envTTL := os.Getenv("CONFIRMATION_TOKEN_TTL_HOURS"); envTTL != "" {
+		if parsed, err := strconv.Atoi(envTTL); err == nil {
+			ttlHours = parsed
+		}
+	}
 	return &Service{
-		repo:           r,
-		checkPassword:  CheckPasswordHash,
-		hashPassword:   HashPassword,
-		generateTokens: GenerateTokensFromEnv,
+		repo:            r,
+		checkPassword:   CheckPasswordHash,
+		hashPassword:    HashPassword,
+		generateTokens:  GenerateTokensFromEnv,
+		confirmationTTL: time.Duration(ttlHours) * time.Hour,
 	}
 }
 
-// Signup is a Gin handler that registers a new user.
+// Signup handles registration of internal users using a corporate email.
 func (s *Service) Signup(c *gin.Context) {
 	var req SignupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
-
 	if !strings.HasSuffix(strings.ToLower(req.Email), "@madagascarairlines.com") {
 		c.JSON(http.StatusForbidden, gin.H{"error": "signup is restricted to company email addresses"})
 		return
@@ -76,7 +85,47 @@ func (s *Service) Signup(c *gin.Context) {
 	})
 }
 
-// InviteUser handles inviting a user (internal or external) via email and optional duration.
+// SignupUser creates a new internal user account and sends a confirmation email.
+func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, error) {
+	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
+		return Response{}, errors.New("only @madagascarairlines.com emails are allowed")
+	}
+
+	exists, err := s.repo.IsEmailExists(req.Email)
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to check user existence: %w", err)
+	}
+	if exists {
+		return Response{}, errors.New("email already registered")
+	}
+
+	hashedPassword, err := s.hashPassword(req.Password)
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	userID, err := s.repo.CreateUserWithType(ctx, nil, req.Email, hashedPassword, "internal")
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	token, err := s.issueConfirmationToken(ctx, userID)
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to issue token: %w", err)
+	}
+	if err := s.notifyUserWithToken(req.Email, token, false); err != nil {
+		return Response{}, fmt.Errorf("failed to send confirmation email: %w", err)
+	}
+
+	access, refresh, err := s.generateTokens(user.User{ID: userID, Email: req.Email, Role: "user"})
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	return Response{AccessToken: access, RefreshToken: refresh}, nil
+}
+
+// InviteUser allows admins to invite internal/external users with optional access duration.
 func (s *Service) InviteUser(c *gin.Context) {
 	var req InviteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -116,16 +165,12 @@ func (s *Service) InviteUser(c *gin.Context) {
 		return
 	}
 
-	token, err := utils.GenerateSecureToken(32)
+	token, err := s.issueConfirmationToken(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
 		return
 	}
-	if err := s.repo.SetConfirmationToken(c.Request.Context(), userID, token); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store token"})
-		return
-	}
-	if err := SendConfirmationEmail(req.Email, token); err != nil {
+	if err := s.notifyUserWithToken(req.Email, token, false); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send invite email"})
 		return
 	}
@@ -133,99 +178,33 @@ func (s *Service) InviteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User invited"})
 }
 
-// SignupUser registers a new user and returns tokens.
-func (s *Service) SignupUser(ctx context.Context, req SignupRequest) (Response, error) {
-	log.Printf("➡️ SignupUser called with email: %s", req.Email)
-
-	if !strings.HasSuffix(req.Email, "@madagascarairlines.com") {
-		return Response{}, errors.New("only @madagascarairlines.com emails are allowed")
-	}
-
-	log.Println("🔍 Checking if email exists...")
-	exists, err := s.repo.IsEmailExists(req.Email)
+// ResendConfirmation resends the email confirmation link for a pending internal user.
+func (s *Service) ResendConfirmation(ctx context.Context, email string) error {
+	userRecord, err := s.repo.FindByEmail(ctx, email)
 	if err != nil {
-		return Response{}, fmt.Errorf("failed to check user existence: %w", err)
-	}
-	if exists {
-		return Response{}, errors.New("email already registered")
+		return errors.New("user not found")
 	}
 
-	log.Println("🔐 Hashing password...")
-	hashedPassword, err := s.hashPassword(req.Password)
+	log.Printf("DEBUG: Resend - email=%s user_type=%s status=%s", userRecord.Email, userRecord.UserType, userRecord.Status)
+
+	if userRecord.Status != "pending" {
+		return errors.New("user already confirmed or invalid status")
+	}
+	if userRecord.UserType != "internal" || !strings.HasSuffix(strings.ToLower(userRecord.Email), "@madagascarairlines.com") {
+		return errors.New("resend allowed only for internal users")
+	}
+
+	token, err := s.issueConfirmationToken(ctx, userRecord.ID)
 	if err != nil {
-		return Response{}, fmt.Errorf("failed to hash password: %w", err)
+		return fmt.Errorf("failed to issue token: %w", err)
 	}
-
-	log.Println("📝 Creating user with type 'internal'...")
-	var unsetCompanyID *int
-	userID, err := s.repo.CreateUserWithType(ctx, unsetCompanyID, req.Email, hashedPassword, "internal")
-
-	if err != nil {
-		log.Printf("❌ DB error during CreateUserWithType: %v", err)
-		return Response{}, fmt.Errorf("failed to create user: %w", err)
+	if err := s.notifyUserWithToken(userRecord.Email, token, true); err != nil {
+		return fmt.Errorf("failed to send confirmation email: %w", err)
 	}
-
-	log.Printf("📨 Generating confirmation token for user ID: %d", userID)
-	token, err := utils.GenerateSecureToken(32)
-	if err != nil {
-		return Response{}, fmt.Errorf("failed to generate confirmation token: %w", err)
-	}
-
-	log.Println("💾 Storing confirmation token...")
-	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
-		return Response{}, fmt.Errorf("failed to store confirmation token: %w", err)
-	}
-
-	log.Println("📧 Sending confirmation email...")
-	if err := SendConfirmationEmail(req.Email, token); err != nil {
-		return Response{}, fmt.Errorf("failed to send confirmation email: %w", err)
-	}
-
-	log.Println("🔑 Generating access and refresh tokens...")
-	newUser := user.User{
-		ID:    userID,
-		Email: req.Email,
-		Role:  "user",
-	}
-	access, refresh, err := s.generateTokens(newUser)
-	if err != nil {
-		return Response{}, fmt.Errorf("failed to generate tokens: %w", err)
-	}
-
-	log.Println("✅ Signup flow completed successfully")
-	return Response{
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}, nil
+	return nil
 }
 
-// Login validates a user and returns new tokens.
-func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error) {
-	userRecord, err := s.repo.FindByEmail(ctx, req.Email)
-	if err != nil {
-		return Response{}, errors.New("invalid email or password")
-	}
-
-	if userRecord.Status != "active" {
-		return Response{}, errors.New("account not confirmed")
-	}
-
-	if err := s.checkPassword(req.Password, userRecord.PasswordHash); err != nil {
-		return Response{}, errors.New("invalid email or password")
-	}
-
-	access, refresh, err := s.generateTokens(userRecord)
-	if err != nil {
-		return Response{}, err
-	}
-
-	return Response{
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}, nil
-}
-
-// CompleteInvite sets password, activates user, and returns JWT tokens.
+// CompleteInvite sets the password and activates an invited user.
 func (s *Service) CompleteInvite(ctx context.Context, token string, password string) (Response, error) {
 	userRecord, err := s.repo.FindByConfirmationToken(ctx, token)
 	if err != nil {
@@ -234,7 +213,7 @@ func (s *Service) CompleteInvite(ctx context.Context, token string, password str
 	if userRecord.Status != "pending" {
 		return Response{}, errors.New("user already confirmed")
 	}
-	if time.Since(userRecord.CreatedAt) > 24*time.Hour {
+	if time.Since(userRecord.CreatedAt) > s.confirmationTTL {
 		return Response{}, errors.New("token expired")
 	}
 
@@ -242,7 +221,6 @@ func (s *Service) CompleteInvite(ctx context.Context, token string, password str
 	if err != nil {
 		return Response{}, errors.New("failed to hash password")
 	}
-
 	if err := s.repo.UpdatePasswordAndActivate(ctx, userRecord.ID, hashed); err != nil {
 		return Response{}, errors.New("failed to activate account")
 	}
@@ -252,63 +230,71 @@ func (s *Service) CompleteInvite(ctx context.Context, token string, password str
 		return Response{}, errors.New("failed to generate tokens")
 	}
 
-	return Response{
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}, nil
+	return Response{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-// ConfirmRegistration activates a pending user account from email token.
+// Login authenticates a user with email and password, returning tokens.
+func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error) {
+	userRecord, err := s.repo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return Response{}, errors.New("invalid email or password")
+	}
+	if userRecord.Status != "active" {
+		return Response{}, errors.New("account not confirmed")
+	}
+	if err := s.checkPassword(req.Password, userRecord.PasswordHash); err != nil {
+		return Response{}, errors.New("invalid email or password")
+	}
+
+	access, refresh, err := s.generateTokens(userRecord)
+	if err != nil {
+		return Response{}, err
+	}
+	return Response{AccessToken: access, RefreshToken: refresh}, nil
+}
+
+// ConfirmRegistration confirms a user account using a token sent via email.
 func (s *Service) ConfirmRegistration(ctx context.Context, token string) error {
 	userRecord, err := s.repo.FindByConfirmationToken(ctx, token)
 	if err != nil {
-		// Token not found or corrupted
 		return errors.New("invalid or expired token")
 	}
-
-	if userRecord.Status == "active" {
-		// User already confirmed
-		return errors.New("user already confirmed")
-	}
-
 	if userRecord.Status != "pending" {
-		// Any non-pending status is not valid for confirmation
 		return errors.New("user already confirmed")
 	}
-
-	if time.Since(userRecord.CreatedAt) > 24*time.Hour {
+	if time.Since(userRecord.CreatedAt) > s.confirmationTTL {
 		return errors.New("token expired")
 	}
-
-	if err := s.repo.MarkUserConfirmed(ctx, userRecord.ID); err != nil {
-		return errors.New("failed to activate account")
-	}
-
-	return nil
+	return s.repo.MarkUserConfirmed(ctx, userRecord.ID)
 }
 
-// ValidateConfirmationToken validates and checks expiration of the confirmation token.
-func (s *Service) ValidateConfirmationToken(ctx context.Context, token string) error {
-	userRecord, err := s.repo.FindByConfirmationToken(ctx, token)
+func (s *Service) issueConfirmationToken(ctx context.Context, userID int64) (string, error) {
+	token, err := utils.GenerateSecureToken(32)
 	if err != nil {
-		return errors.New("invalid or expired confirmation token")
+		return "", err
 	}
-	if userRecord.Status != "pending" {
-		return errors.New("user already confirmed")
+	if err := s.repo.SetConfirmationToken(ctx, userID, token); err != nil {
+		return "", err
 	}
-	if time.Since(userRecord.CreatedAt) > 24*time.Hour {
-		return errors.New("confirmation token expired")
-	}
-	return nil // No-op (user will confirm later via /complete-invite)
+	return token, nil
 }
 
-// HashPassword hashes a plaintext password using bcrypt.
+func (s *Service) notifyUserWithToken(email, token string, isResend bool) error {
+	return SendConfirmationEmail(email, token, isResend)
+}
+
+// HashPassword hashes a password securely using bcrypt.
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(bytes), err
 }
 
-// ParseFlexibleDuration parses duration strings like "15m", "2h", "3d", "1w", "6mo", "1y".
+// CheckPasswordHash verifies a plaintext password against a bcrypt hash.
+func CheckPasswordHash(password, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+}
+
+// ParseFlexibleDuration parses durations like "2d", "3w", or "1mo" into time.Duration.
 func ParseFlexibleDuration(input string) (time.Duration, error) {
 	switch {
 	case strings.HasSuffix(input, "y"):
@@ -324,11 +310,6 @@ func ParseFlexibleDuration(input string) (time.Duration, error) {
 		n, err := strconv.Atoi(strings.TrimSuffix(input, "d"))
 		return time.Hour * 24 * time.Duration(n), err
 	default:
-		return time.ParseDuration(input) // handles "15m", "3h"
+		return time.ParseDuration(input)
 	}
-}
-
-// CheckPasswordHash compares a plaintext password to a bcrypt hash.
-func CheckPasswordHash(_raw, hash string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(_raw))
 }

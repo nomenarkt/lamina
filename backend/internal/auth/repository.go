@@ -45,8 +45,9 @@ func (r *repositoryImpl) CreateUserInvite(ctx context.Context, email, userType s
 func (r *repositoryImpl) FindByEmail(ctx context.Context, email string) (user.User, error) {
 	var u user.User
 	err := r.db.GetContext(ctx, &u, `
-		SELECT id, email, password_hash, role, status
-		FROM users WHERE email=$1
+		SELECT id, email, password_hash, role, status, user_type, confirmation_token, created_at
+		FROM users
+		WHERE LOWER(email) = LOWER($1)
 	`, email)
 	return u, err
 }

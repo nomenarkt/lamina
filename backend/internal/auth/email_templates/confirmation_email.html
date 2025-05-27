@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Confirm Your Account</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f9f9f6;
+        color: #333;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 480px;
+        margin: auto;
+        background: white;
+        padding: 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+      .logo {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+      .btn {
+        display: inline-block;
+        margin-top: 24px;
+        padding: 12px 24px;
+        background-color: #006644;
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        border-radius: 4px;
+      }
+      .footer {
+        margin-top: 32px;
+        font-size: 12px;
+        color: #999;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">
+        <img src="https://your-domain.com/logo.webp" alt="Madagascar Airlines" width="160" />
+      </div>
+      <span style="display:none;">Confirm your Madagascar Airlines account</span>
+      <h2>Welcome to Madagascar Airlines</h2>
+      {{ if .IsResend }}
+        <p>You requested a new confirmation link. Click below to activate your account.</p>
+      {{ else }}
+        <p>Thanks for signing up! Please confirm your email address to activate your account.</p>
+      {{ end }}
+      <p style="text-align: center;">
+        <a class="btn" href="http://localhost:8080/api/v1/auth/confirm/{{.Token}}">
+          Activate Your Account
+        </a>
+      </p>
+      <p>If you didn’t sign up, you can ignore this email.</p>
+      <div class="footer">
+        &copy; {{.Year}} Madagascar Airlines. All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>

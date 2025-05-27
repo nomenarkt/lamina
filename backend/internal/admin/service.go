@@ -89,5 +89,5 @@ func (s *Service) InviteUser(ctx context.Context, req CreateUserRequest, _ strin
 		return err
 	}
 
-	return auth.SendConfirmationEmail(req.Email, token)
+	return auth.SendConfirmationEmail(req.Email, token, false)
 }

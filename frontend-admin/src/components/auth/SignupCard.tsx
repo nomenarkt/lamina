@@ -45,7 +45,8 @@ export function SignupCard() {
         throw new Error(data.message || 'Signup failed');
       }
 
-      router.push('/check-email'); // ✅ Redirect here after successful signup
+      // ✅ Redirect to /check-email with email in query string
+      router.push(`/check-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : typeof err === 'string' ? err : 'An unknown error occurred';

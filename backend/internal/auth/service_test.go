@@ -207,7 +207,6 @@ func TestSignupUser_HashFailure(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "failed to hash password: hash failed")
-
 }
 
 func TestSignupUser_TokenFailure(t *testing.T) {
@@ -215,8 +214,7 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	email := "user@madagascarairlines.com"
 	repo.On("IsEmailExists", email).Return(false, nil)
 	repo.On("CreateUserWithType", mock.Anything, (*int)(nil), email, "hashedok", "internal").Return(int64(99), nil)
-	repo.On("SetConfirmationToken", mock.Anything, int64(99), mock.AnythingOfType("string")).
-		Return(errors.New("mock token failure"))
+	repo.On("SetConfirmationToken", mock.Anything, int64(99), mock.AnythingOfType("string")).Return(errors.New("mock token failure"))
 
 	service := &Service{
 		repo: repo,
@@ -234,8 +232,7 @@ func TestSignupUser_TokenFailure(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.EqualError(t, err, "failed to store confirmation token: mock token failure")
-
+	assert.Contains(t, err.Error(), "failed to issue token: mock token failure")
 }
 
 func TestSignupUser_InvalidDomain(t *testing.T) {
@@ -274,7 +271,7 @@ func TestCompleteInvite_Success(t *testing.T) {
 		ID:        userID,
 		Email:     "invitee@example.com",
 		Status:    "pending",
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now(), // 👈 prevents TTL expiry
 	}
 
 	repo.On("FindByConfirmationToken", mock.Anything, token).Return(testUser, nil)
@@ -288,6 +285,7 @@ func TestCompleteInvite_Success(t *testing.T) {
 		generateTokens: func(_ user.User) (string, string, error) {
 			return "access-token", "refresh-token", nil
 		},
+		confirmationTTL: 24 * time.Hour,
 	}
 
 	resp, err := service.CompleteInvite(context.Background(), token, password)
@@ -301,11 +299,14 @@ func TestConfirmRegistration_Success(t *testing.T) {
 	repo.On("FindByConfirmationToken", mock.Anything, "valid-token").Return(user.User{
 		ID:        1,
 		Status:    "pending",
-		CreatedAt: time.Now().Add(-1 * time.Hour),
+		CreatedAt: time.Now(), // 👈 within TTL
 	}, nil)
 	repo.On("MarkUserConfirmed", mock.Anything, int64(1)).Return(nil)
 
-	service := &Service{repo: repo}
+	service := &Service{
+		repo:            repo,
+		confirmationTTL: 24 * time.Hour,
+	}
 
 	err := service.ConfirmRegistration(context.Background(), "valid-token")
 	assert.NoError(t, err)

@@ -1,21 +1,46 @@
 package auth
 
 import (
+	"bytes"
+	"embed"
 	"fmt"
+	"html/template"
 	"log"
 	"os"
+	"time"
 )
 
-// SendConfirmationEmail logs or sends a confirmation email with a token link.
-func SendConfirmationEmail(toEmail, token string) error {
-	baseURL := os.Getenv("BACKEND_URL") // e.g., http://localhost:8080
-	link := fmt.Sprintf("%s/api/v1/auth/confirm/%s", baseURL, token)
+//go:embed email_templates/confirmation_email.html
+var confirmationTemplateFS embed.FS
 
-	// Just log it for now — wire to SMTP later
-	log.Printf("📧 Confirmation email to %s: %s", toEmail, link)
+// SendConfirmationEmail renders and logs the email body with a confirmation link.
+func SendConfirmationEmail(toEmail, token string, isResend bool) error {
+	baseURL := os.Getenv("FRONTEND_CONFIRM_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:3000/confirm"
+	}
+	link := fmt.Sprintf("%s/%s", baseURL, token)
 
-	// Optional real SMTP (setup later)
-	// smtp.SendMail(...)
+	tmpl, err := template.ParseFS(confirmationTemplateFS, "email_templates/confirmation_email.html")
+	if err != nil {
+		return fmt.Errorf("❌ failed to parse embedded email template: %w", err)
+	}
 
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, struct {
+		Token    string
+		Link     string
+		Year     int
+		IsResend bool
+	}{
+		Token:    token,
+		Link:     link,
+		Year:     time.Now().Year(),
+		IsResend: isResend,
+	}); err != nil {
+		return fmt.Errorf("❌ failed to render email template: %w", err)
+	}
+
+	log.Printf("📧 Confirmation email to %s:\n%s", toEmail, body.String())
 	return nil
 }
