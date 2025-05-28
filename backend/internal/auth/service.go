@@ -233,14 +233,18 @@ func (s *Service) CompleteInvite(ctx context.Context, token string, password str
 	return Response{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-// Login authenticates a user with email and password, returning tokens.
+// ErrUnconfirmedAccount is returned when the user has not confirmed their email yet.
+var ErrUnconfirmedAccount = errors.New("unconfirmed account")
+
+// Login authenticates a user and returns JWT tokens if the credentials are valid and the account is confirmed.
+// It returns ErrUnconfirmedAccount if the account is still pending.
 func (s *Service) Login(ctx context.Context, req LoginRequest) (Response, error) {
 	userRecord, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		return Response{}, errors.New("invalid email or password")
 	}
 	if userRecord.Status != "active" {
-		return Response{}, errors.New("account not confirmed")
+		return Response{}, ErrUnconfirmedAccount
 	}
 	if err := s.checkPassword(req.Password, userRecord.PasswordHash); err != nil {
 		return Response{}, errors.New("invalid email or password")

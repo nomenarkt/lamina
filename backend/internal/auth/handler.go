@@ -2,6 +2,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,7 +30,11 @@ func RegisterRoutes(router *gin.RouterGroup, db *sqlx.DB, service ServiceInterfa
 		}
 		tokens, err := service.Login(c.Request.Context(), req)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			if errors.Is(err, ErrUnconfirmedAccount) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "account not confirmed"})
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, tokens)

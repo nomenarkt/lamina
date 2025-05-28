@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthCardLayout } from './AuthCardLayout';
+import ResendConfirmation from '@/components/ui/ResendConfirmation';
 
 export function LoginCard() {
   const router = useRouter();
@@ -11,10 +12,12 @@ export function LoginCard() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showResend, setShowResend] = useState(false);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setShowResend(false);
     setLoading(true);
 
     if (!email || !password) {
@@ -30,8 +33,18 @@ export function LoginCard() {
         body: JSON.stringify({ email, password }),
       });
 
+      const result = await res.json().catch(() => ({}));
 
-      const result = await res.json();
+      if (res.status === 403) {
+        setError('Account not confirmed');
+        setShowResend(true);
+        return;
+      }
+
+      if (res.status === 401) {
+        setError('Invalid email or password');
+        return;
+      }
 
       if (!res.ok) {
         throw new Error(result.error || 'Login failed');
@@ -91,6 +104,12 @@ export function LoginCard() {
       <div role="alert" aria-live="assertive" className="text-sm text-red-600 min-h-[20px] mt-1">
         {error || ''}
       </div>
+
+      {showResend && (
+        <div className="mt-4 border-t border-gray-200 pt-4">
+          <ResendConfirmation email={email} />
+        </div>
+      )}
 
       <button
         type="submit"
