@@ -1,5 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthCardLayout } from '../AuthCardLayout';
+import React from 'react';
+
 
 describe('AuthCardLayout', () => {
   it('renders title, children and footer', () => {

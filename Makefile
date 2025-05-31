@@ -5,7 +5,7 @@ FRONTEND_DIR := frontend-admin
 
 # === 🧱 Backend Commands ===
 
-.PHONY: app-up app-logs dev-up dev-reset dev-restart rebuild down migrate test lint
+.PHONY: app-up app-logs dev-up dev-reset dev-restart rebuild down migrate test lint clean
 
 app-up: ## 🔁 Use after editing Go code (hot-reload via Air enabled)
 	$(MAKE) -C $(BACKEND_DIR) app-up
@@ -36,6 +36,9 @@ test: ## ✅ Run Go unit tests (always before commit/PR)
 
 lint: ## 🧼 Run Go linters (required before merge)
 	$(MAKE) -C $(BACKEND_DIR) lint
+
+clean: ## 🧹 Clean Go caches and compiled binaries (from backend)
+	$(MAKE) -C $(BACKEND_DIR) clean
 
 # === 🎨 Frontend Commands ===
 

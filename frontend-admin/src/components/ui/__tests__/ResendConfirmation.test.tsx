@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ResendConfirmation from '../ResendConfirmation';
+import React from 'react';
+
 
 const mockPush = jest.fn();
 

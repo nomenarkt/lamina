@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import CheckEmail from '../page';
+import React from 'react';
+
 
 // Mock useRouter and useSearchParams
 jest.mock('next/navigation', () => ({

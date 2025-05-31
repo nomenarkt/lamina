@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LoginCard } from '../LoginCard';
+import React from 'react';
+
 
 // Mock the Next.js App Router
 jest.mock('next/navigation', () => ({

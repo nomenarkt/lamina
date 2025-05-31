@@ -5,6 +5,8 @@
 import { render, screen } from '@testing-library/react';
 import ConfirmErrorPage from '@/app/confirm-error/page';
 import { useSearchParams } from 'next/navigation';
+import React from 'react';
+
 
 jest.mock('next/navigation', () => ({
   useSearchParams: jest.fn(),

@@ -13,7 +13,9 @@ import (
 	"github.com/nomenarkt/lamina/common/database"
 	"github.com/nomenarkt/lamina/common/utils"
 	"github.com/nomenarkt/lamina/config"
+	"github.com/nomenarkt/lamina/internal/access"
 	"github.com/nomenarkt/lamina/internal/admin"
+	"github.com/nomenarkt/lamina/internal/adminaccess"
 	"github.com/nomenarkt/lamina/internal/auth"
 	"github.com/nomenarkt/lamina/internal/crew"
 	"github.com/nomenarkt/lamina/internal/tasks"
@@ -31,6 +33,9 @@ func main() {
 			log.Printf("failed to close database: %v", err)
 		}
 	}()
+
+	// Initialize Casbin enforcer
+	access.InitEnforcer(os.Getenv("DATABASE_URL"))
 
 	gin.ForceConsoleColor()
 	gin.SetMode(gin.DebugMode)
@@ -55,7 +60,7 @@ func main() {
 
 	// Secure endpoints
 	userRepo := user.NewUserRepository(db)
-	api.Use(auth.Middleware(userRepo)) // ✅ Inject userRepo
+	api.Use(auth.Middleware(userRepo)) // ✅ Inject userRepo into context
 
 	{
 		userService := user.NewUserService(userRepo)
@@ -73,6 +78,9 @@ func main() {
 		crewService := crew.NewService(crewRepo)
 		crewHandler := crew.NewHandler(crewService)
 		crew.RegisterRoutes(api, crewHandler)
+
+		// ✅ Register RBAC admin routes
+		adminaccess.RegisterRoutes(api)
 	}
 
 	port := os.Getenv("PORT")

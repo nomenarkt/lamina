@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SignupForm } from '../SignupForm';
 
+
 describe('SignupForm', () => {
   it('shows validation error if email is invalid', async () => {
     render(<SignupForm />);
