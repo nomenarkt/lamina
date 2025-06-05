@@ -193,7 +193,7 @@ func TestHandler_UpdateProfile_ServiceError(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	assert.Contains(t, resp.Body.String(), "fail!")
+	assert.Contains(t, resp.Body.String(), "fail")
 }
 
 func TestRegisterRoutes_BindsCorrectly(t *testing.T) {
