@@ -55,7 +55,7 @@ down: ## Stop and clean up all containers, networks, and volumes
 
 test: ## Run unit tests with race and coverage
 	@echo "==> Running unit tests..."
-	go test ./... -v -cover -race -coverprofile=coverage.out
+	go test -mod=vendor ./... -v -cover -race -coverprofile=coverage.out
 	@go tool cover -func=coverage.out
 
 lint: ## Run Go linters

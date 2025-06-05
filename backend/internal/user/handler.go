@@ -16,6 +16,7 @@ type ServiceInterface interface {
 	GetMe(ctx context.Context, id int64) (*User, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	UpdateUserProfile(ctx context.Context, userID int64, req UpdateProfileRequest) error
+	CreateUser(ctx context.Context, u *User) error // ✅ Added CreateUser
 }
 
 // Handler handles HTTP requests related to user operations.
@@ -55,14 +56,6 @@ func (h *Handler) ListAll(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
-// RegisterRoutes binds user-related endpoints to the router group.
-func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
-	group := router.Group("/user")
-	group.GET("/me", h.GetMe)
-	group.GET("/", h.ListAll)
-	group.PUT("/profile", h.UpdateProfile)
-}
-
 // ListUsers handles GET /user (alias for ListAll) - returns all users.
 func (h *Handler) ListUsers(c *gin.Context) {
 	users, err := h.service.ListUsers(c)
@@ -90,4 +83,27 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "profile updated"})
+}
+
+// CreateUser handles POST /user - creates a new user.
+func (h *Handler) CreateUser(c *gin.Context) {
+	var u User
+	if err := c.ShouldBindJSON(&u); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		return
+	}
+	if err := h.service.CreateUser(c.Request.Context(), &u); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"id": u.ID})
+}
+
+// RegisterRoutes binds user-related endpoints to the router group.
+func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
+	group := router.Group("/user")
+	group.GET("/me", h.GetMe)
+	group.GET("/", h.ListAll)
+	group.PUT("/profile", h.UpdateProfile)
+	group.POST("/", h.CreateUser) // ✅ Route registered here
 }

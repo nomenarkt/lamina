@@ -11,10 +11,18 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	admin := rg.Group("/admin")
 	admin.Use(middleware.RequireRoles("admin"))
 
+	// Role management
 	admin.POST("/roles", AssignRole)
 	admin.DELETE("/roles", RemoveRole)
 
+	// Policy management
 	admin.POST("/policies", AddPolicy)
 	admin.DELETE("/policies", DeletePolicy)
 	admin.GET("/policies", ListPolicies)
+
+	// Organizational unit reference data
+	admin.GET("/organizational_units", ListOrganizationalUnitsHandler)
+
+	// User permission introspection
+	admin.GET("/user/:id/policies", GetUserEffectivePoliciesHandler)
 }

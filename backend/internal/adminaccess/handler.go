@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nomenarkt/lamina/common/database"
 	"github.com/nomenarkt/lamina/internal/access"
 )
 
@@ -22,6 +23,12 @@ type PolicyRequest struct {
 	OrgUnitID int    `json:"org_unit_id" binding:"required"` // org domain
 	Object    string `json:"object" binding:"required"`      // e.g., /api/flights
 	Action    string `json:"action" binding:"required"`      // e.g., read/write
+}
+
+// OrganizationalUnitResponse represents the ID and name of an org unit.
+type OrganizationalUnitResponse struct {
+	ID   int    `db:"id" json:"id"`
+	Name string `db:"name" json:"name"`
 }
 
 // AssignRole assigns a role to a user for a given domain.
@@ -111,4 +118,56 @@ func ListPolicies(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"policies": policies})
+}
+
+// ListOrganizationalUnitsHandler returns all org units.
+func ListOrganizationalUnitsHandler(c *gin.Context) {
+	db := database.GetDB()
+
+	var units []OrganizationalUnitResponse
+	err := db.Select(&units, "SELECT id, name FROM organizational_units")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "could not fetch organizational units"})
+		return
+	}
+
+	c.JSON(http.StatusOK, units)
+}
+
+// GetUserEffectivePoliciesHandler returns Casbin permissions for a user scoped to org unit.
+func GetUserEffectivePoliciesHandler(c *gin.Context) {
+	userID := c.Param("id")
+	orgUnitID := c.Query("org_unit_id")
+
+	if userID == "" || orgUnitID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "user ID and org_unit_id are required"})
+		return
+	}
+
+	role := c.GetString("role")
+	if role != "admin" && role != "planner" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "forbidden"})
+		return
+	}
+
+	e := access.GetEnforcer()
+	subject := "user:" + userID
+
+	domain := "orgunit:" + orgUnitID
+
+	allPolicies, err := e.GetImplicitPermissionsForUser(subject, domain)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to get permissions"})
+		return
+	}
+
+	// Filter by domain
+	var filtered [][]string
+	for _, p := range allPolicies {
+		if len(p) >= 3 && p[1] == domain {
+			filtered = append(filtered, p)
+		}
+	}
+
+	c.JSON(http.StatusOK, filtered)
 }

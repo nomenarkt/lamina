@@ -76,3 +76,30 @@ func (s *Service) CompleteProfileByUserType(ctx context.Context, userID int64, r
 
 	return s.repo.UpdateUserProfile(ctx, userID, req.FullName, req.EmployeeID, req.Phone, req.Address)
 }
+
+// IsAdmin checks if a user is an admin.
+func (s *Service) IsAdmin(ctx context.Context, userID int64) (bool, error) {
+	return s.repo.IsAdmin(ctx, userID)
+}
+
+// MarkUserActive sets the user status to active.
+func (s *Service) MarkUserActive(ctx context.Context, userID int64) error {
+	return s.repo.MarkUserActive(ctx, userID)
+}
+
+// DeleteExpiredPendingUsers removes users with pending status that have expired.
+func (s *Service) DeleteExpiredPendingUsers(ctx context.Context) error {
+	return s.repo.DeleteExpiredPendingUsers(ctx)
+}
+
+// CreateUser creates a new user in the system and stores it in the repository.
+func (s *Service) CreateUser(ctx context.Context, user *User) error {
+	existing, err := s.repo.FindByEmail(ctx, user.Email)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		return errors.New("email already in use")
+	}
+	return s.repo.Create(ctx, user)
+}

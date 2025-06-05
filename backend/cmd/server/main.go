@@ -27,6 +27,7 @@ func main() {
 
 	config.LoadEnv()
 
+	// ✅ Initialize and store DB globally
 	db := database.ConnectDB()
 	defer func() {
 		if err := db.Close(); err != nil {
@@ -34,7 +35,7 @@ func main() {
 		}
 	}()
 
-	// Initialize Casbin enforcer
+	// ✅ Initialize Casbin enforcer (uses GORM)
 	access.InitEnforcer(os.Getenv("DATABASE_URL"))
 
 	gin.ForceConsoleColor()
@@ -53,14 +54,14 @@ func main() {
 
 	api := router.Group("/api/v1")
 
-	// Auth setup
+	// ✅ Use global DB instance for auth
 	authRepo := auth.NewAuthRepository(db)
 	authService := auth.NewService(authRepo)
 	auth.RegisterRoutes(api, db, authService)
 
-	// Secure endpoints
+	// ✅ Secure endpoints with userRepo
 	userRepo := user.NewUserRepository(db)
-	api.Use(auth.Middleware(userRepo)) // ✅ Inject userRepo into context
+	api.Use(auth.Middleware(userRepo))
 
 	{
 		userService := user.NewUserService(userRepo)
@@ -79,7 +80,7 @@ func main() {
 		crewHandler := crew.NewHandler(crewService)
 		crew.RegisterRoutes(api, crewHandler)
 
-		// ✅ Register RBAC admin routes
+		// ✅ Register Casbin-admin access control endpoints
 		adminaccess.RegisterRoutes(api)
 	}
 

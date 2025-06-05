@@ -18,8 +18,7 @@ func (m *MockUserRepo) FindByEmail(ctx context.Context, email string) (*User, er
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	user := args.Get(0).(User)
-	return &user, args.Error(1)
+	return args.Get(0).(*User), args.Error(1) // ✅ fixed
 }
 
 func (m *MockUserRepo) IsAdmin(ctx context.Context, userID int64) (bool, error) {
@@ -44,18 +43,19 @@ func (m *MockUserRepo) FindAll(ctx context.Context) ([]User, error) {
 	return args.Get(0).([]User), args.Error(1)
 }
 
-// ✅ UPDATED: matches updated production repo signature
 func (m *MockUserRepo) UpdateUserProfile(ctx context.Context, userID int64, fullName string, employeeID *int, phone, address *string) error {
 	args := m.Called(ctx, userID, fullName, employeeID, phone, address)
 	return args.Error(0)
 }
 
-func (m *MockUserRepo) MarkUserActive(_ context.Context, _ int64) error {
-	return nil
+func (m *MockUserRepo) MarkUserActive(ctx context.Context, userID int64) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
 }
 
-func (m *MockUserRepo) DeleteExpiredPendingUsers(_ context.Context) error {
-	return nil
+func (m *MockUserRepo) DeleteExpiredPendingUsers(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 func newMockedUserService() (*Service, *MockUserRepo) {
@@ -200,4 +200,69 @@ func TestUserService_CompleteProfileByUserType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUserService_IsAdmin(t *testing.T) {
+	svc, repo := newMockedUserService()
+
+	repo.On("IsAdmin", context.Background(), int64(77)).Return(true, nil)
+
+	isAdmin, err := svc.IsAdmin(context.Background(), 77)
+	assert.NoError(t, err)
+	assert.True(t, isAdmin)
+}
+
+func TestUserService_MarkUserActive(t *testing.T) {
+	svc, repo := newMockedUserService()
+
+	repo.On("MarkUserActive", context.Background(), int64(2024)).Return(nil)
+
+	err := svc.MarkUserActive(context.Background(), 2024)
+	assert.NoError(t, err)
+}
+
+func TestUserService_DeleteExpiredPendingUsers(t *testing.T) {
+	svc, repo := newMockedUserService()
+
+	repo.On("DeleteExpiredPendingUsers", context.Background()).Return(nil)
+
+	err := svc.DeleteExpiredPendingUsers(context.Background())
+	assert.NoError(t, err)
+}
+
+func (m *MockUserRepo) Create(ctx context.Context, user *User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func TestUserService_CreateUser(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		svc, repo := newMockedUserService()
+
+		input := &User{
+			Email:        "new@user.com",
+			PasswordHash: "hashedpass",
+			Role:         "user",
+			Status:       "pending",
+		}
+
+		repo.On("FindByEmail", mock.Anything, input.Email).Return(nil, nil)
+		repo.On("Create", mock.Anything, input).Return(nil)
+
+		err := svc.CreateUser(context.Background(), input)
+		assert.NoError(t, err)
+	})
+
+	t.Run("duplicate email", func(t *testing.T) {
+		svc, repo := newMockedUserService()
+
+		existing := User{ID: 999, Email: "dupe@user.com"}
+		input := &User{Email: "dupe@user.com"}
+
+		repo.On("FindByEmail", mock.Anything, input.Email).Return(&existing, nil)
+
+		err := svc.CreateUser(context.Background(), input)
+		assert.Error(t, err)
+		assert.Equal(t, "email already in use", err.Error())
+	})
 }

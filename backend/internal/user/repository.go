@@ -18,6 +18,7 @@ type Repo interface {
 	UpdateUserProfile(ctx context.Context, userID int64, fullName string, employeeID *int, phone, address *string) error
 	MarkUserActive(ctx context.Context, id int64) error
 	DeleteExpiredPendingUsers(ctx context.Context) error
+	Create(ctx context.Context, u *User) error
 }
 
 // Repository implements the Repo interface using sqlx for DB interaction.
@@ -116,4 +117,25 @@ func (r *Repository) DeleteExpiredPendingUsers(ctx context.Context) error {
 		  AND created_at < NOW() - interval '24 hours'
 	`)
 	return err
+}
+
+// Create inserts a new user into the database.
+func (r *Repository) Create(ctx context.Context, u *User) error {
+	query := `
+		INSERT INTO users (
+			email, password_hash, role, status, user_type, full_name, company_id, phone, address
+		) VALUES (
+			:email, :password_hash, :role, :status, :user_type, :full_name, :company_id, :phone, :address
+		) RETURNING id;
+	`
+
+	stmt, err := r.db.PrepareNamedContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("prepare failed: %w", err)
+	}
+
+	if err := stmt.GetContext(ctx, &u.ID, u); err != nil {
+		return fmt.Errorf("insert failed: %w", err)
+	}
+	return nil
 }

@@ -1,8 +1,15 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "go.toolsEnvVars": {
+      "GOFLAGS": "-tags=integration"
+    },
+    "gopls": {
+      "buildFlags": ["-tags=integration"]
+    }
+  }
 }
