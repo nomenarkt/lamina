@@ -8,7 +8,7 @@
 coverage.out
 
 # Dependency directories
-/vendor/
+#/vendor/
 
 # Docker volumes (if used)
 pgdata/
